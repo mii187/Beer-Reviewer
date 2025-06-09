@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Beer Rater</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Icons" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+        .beer-icon {
+            width: 40px;height: 40px;cursor: pointer;
+            transition: transform 0.2s;
+            filter: brightness(0.7) grayscale(0.3); /* デフォルト時は暗く、やや灰色がかった表示 */
+        }
+        .beer-icon:hover {
+            transform: scale(1.1);
+            filter: brightness(0.9); /* ホバー時は少し明るく */
+        }
+        .selected-beer-icon {
+            filter: brightness(1.3) saturate(1.8) !important; /* 選択時はより明るく、鮮やかに */
+        }
+    </style>
+</head>
+<body class="bg-yellow-50 text-gray-800">
+<!-- nav部分を変更 -->
+<nav class="bg-yellow-500 p-4 shadow-md">
+  <div class="container mx-auto flex justify-between items-center">
+    <a class="text-2xl font-bold text-white" href="#">Beer Rater</a>
+    <div class="space-x-4">
+      <a class="text-white hover:text-yellow-100 cursor-pointer" data-section="seek" id="seekNavBtn">Seek Beers</a>
+      <a class="text-white hover:text-yellow-100 cursor-pointer" data-section="value" id="valueNavBtn">Value Beers</a>
+      <button class="bg-white text-yellow-600 px-4 py-2 rounded-full hover:bg-yellow-100 transition duration-300" id="loginBtn">Login</button>
+    </div>
+  </div>
+</nav>
+
+<!-- main部分を変更 -->
+<main class="container mx-auto p-4 mt-8">
+  <section class="mb-12 text-center">
+    <h1 class="text-4xl font-bold text-yellow-700 mb-4">Discover and Rate Your Favorite Beers</h1>
+    <p class="text-lg text-gray-600">Share your beer experiences with a vibrant community of enthusiasts.</p>
+  </section>
+
+  <!-- Valueセクション（ビール評価フォーム） -->
+  <section id="valueSection" class="app-section">
+    <div class="bg-white p-8 rounded-xl shadow-lg mb-12">
+      <h2 class="text-2xl font-semibold text-yellow-600 mb-6">Rate a New Beer</h2>
+      <form id="rateBeerForm">
+        <div class="mb-6">
+<label class="block text-sm font-medium text-gray-700 mb-1" for="beerName">Beer Name</label>
+<input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="beerName" name="beerName" placeholder="e.g., Craft Lager" type="text"/>
+</div>
+<div class="mb-6">
+<label class="block text-sm font-medium text-gray-700 mb-1" for="beerImage">Upload Image</label>
+<div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+<div class="space-y-1 text-center">
+<span class="material-icons text-5xl text-gray-400">cloud_upload</span>
+<div class="flex text-sm text-gray-600">
+<label class="relative cursor-pointer bg-white rounded-md font-medium text-yellow-600 hover:text-yellow-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-yellow-500" for="file-upload">
+<span>Upload a file</span>
+<input accept="image/*" class="sr-only" id="file-upload" name="file-upload" type="file"/>
+</label>
+<p class="pl-1">or drag and drop</p>
+</div>
+<p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+</div>
+</div>
+<img alt="Preview of uploaded beer image" class="mt-4 max-h-48 rounded-lg hidden mx-auto" id="imagePreview" src=""/>
+</div>
+<div class="mb-6">
+<label class="block text-sm font-medium text-gray-700 mb-2">Your Rating (1-10)</label>
+<div class="flex items-center space-x-1" id="beerRatingContainer">
+</div>
+<input id="beerRatingValue" name="beerRatingValue" type="hidden"/>
+<p class="text-sm text-gray-500 mt-2" id="ratingFeedback">Selected rating: <span id="currentRatingDisplay">0</span>/10</p>
+</div>
+<div class="mb-6">
+<label class="block text-sm font-medium text-gray-700 mb-1" for="beerReview">Your Review (Optional)</label>
+<textarea class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="beerReview" name="beerReview" placeholder="What did you think of this beer?" rows="4"></textarea>
+</div>
+<div>
+<button class="w-full bg-yellow-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-yellow-600 transition duration-300 flex items-center justify-center" type="submit">
+<span class="material-icons mr-2">send</span>
+                        Submit Rating
+                    </button>
+</div>
+</form>
+    </div>
+    <div id="myRatingsSection" style="display: none;">
+      <h2 class="text-3xl font-semibold text-yellow-700 mb-6">My Ratings</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="myRatingsFeed">
+        <!-- ユーザー自身の評価が表示される -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Seekセクション（他のユーザーのビール評価） -->
+  <section id="seekSection" class="app-section" style="display: none;">
+    <div class="bg-white p-8 rounded-xl shadow-lg mb-12">
+      <h2 class="text-2xl font-semibold text-yellow-600 mb-6">Discover Beers</h2>
+      <div class="mb-6">
+        <input type="text" id="beerSearchInput" placeholder="Search beers..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500">
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="beerCatalog">
+        <!-- ビールカタログがここに表示されます -->
+        <p class="text-gray-500 col-span-3 text-center">Loading beers...</p>
+      </div>
+    </div>
+
+    <!-- 選択されたビールの詳細 -->
+    <div id="beerDetailSection" class="bg-white p-8 rounded-xl shadow-lg mb-12" style="display: none;">
+      <div class="flex justify-between items-start mb-6">
+        <h2 class="text-2xl font-semibold text-yellow-600" id="detailBeerName">Beer Name</h2>
+        <button id="backToCatalog" class="text-gray-500 hover:text-gray-700">
+          <span class="material-icons">arrow_back</span> Back
+        </button>
+      </div>
+      <div class="flex flex-col md:flex-row gap-8">
+        <div class="md:w-1/3">
+          <img id="detailBeerImage" src="" alt="Beer Image" class="w-full rounded-lg shadow-md">
+          <div class="mt-4 flex justify-center">
+            <button id="wannaHaveBtn" class="bg-yellow-500 text-white px-4 py-2 rounded-full hover:bg-yellow-600 transition duration-300 flex items-center">
+              <span class="material-icons mr-1">bookmark_border</span> Wanna Have!
+            </button>
+          </div>
+        </div>
+        <div class="md:w-2/3">
+          <div class="mb-4">
+            <div class="flex items-center">
+              <span class="text-yellow-500 font-bold text-xl mr-2" id="detailAverageRating">0/10</span>
+              <div class="flex" id="detailRatingIcons"></div>
+            </div>
+            <p class="text-sm text-gray-500" id="detailRatingCount">0 ratings</p>
+          </div>
+          <div id="beerReviewsList" class="space-y-4">
+            <!-- レビューがここに表示されます -->
+            <p class="text-gray-500">No reviews yet for this beer.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="bg-yellow-600 text-white text-center p-6 mt-12">
+<p>© 2023 Beer Rater. All rights reserved.</p>
+<p class="text-sm">Drink responsibly.</p>
+</footer>
+
+<!-- ログイン/サインアップモーダル -->
+<div id="authModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 hidden">
+  <div class="bg-white rounded-xl shadow-xl p-8 max-w-md w-full">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-semibold text-yellow-600" id="authModalTitle">Login</h2>
+      <button id="closeAuthModal" class="text-gray-400 hover:text-gray-600">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    
+    <!-- ログインフォーム -->
+    <form id="loginForm" class="auth-form">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="loginEmail">Email</label>
+        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="loginEmail" name="loginEmail" type="email" required>
+      </div>
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="loginPassword">Password</label>
+        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="loginPassword" name="loginPassword" type="password" required>
+      </div>
+      <div>
+        <button class="w-full bg-yellow-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-yellow-600 transition duration-300" type="submit">
+          Login
+        </button>
+      </div>
+      <p class="text-center mt-4 text-sm text-gray-600">
+        Don't have an account? <a href="#" id="showSignupForm" class="text-yellow-600 hover:text-yellow-700">Sign up</a>
+      </p>
+    </form>
+    
+    <!-- サインアップフォーム -->
+    <form id="signupForm" class="auth-form hidden">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="signupUsername">Username</label>
+        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="signupUsername" name="signupUsername" type="text" required>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="signupEmail">Email</label>
+        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="signupEmail" name="signupEmail" type="email" required>
+      </div>
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="signupPassword">Password</label>
+        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="signupPassword" name="signupPassword" type="password" required>
+      </div>
+      <div>
+        <button class="w-full bg-yellow-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-yellow-600 transition duration-300" type="submit">
+          Sign Up
+        </button>
+      </div>
+      <p class="text-center mt-4 text-sm text-gray-600">
+        Already have an account? <a href="#" id="showLoginForm" class="text-yellow-600 hover:text-yellow-700">Login</a>
+      </p>
+    </form>
+  </div>
+</div>
+
+<script>
+        const beerRatingContainer = document.getElementById('beerRatingContainer');
+        const beerRatingValueInput = document.getElementById('beerRatingValue');
+        const currentRatingDisplay = document.getElementById('currentRatingDisplay');
+        const maxRating = 10;
+        // SVGファイルのパスを設定
+        const beerImagePaths = [
+            'ビール進行度/1.svg', // Level 1
+            'ビール進行度/2.svg', // Level 2
+            'ビール進行度/3.svg', // Level 3
+            'ビール進行度/4.svg', // Level 4
+            'ビール進行度/5.svg', // Level 5
+            'ビール進行度/6.svg', // Level 6
+            'ビール進行度/7.svg', // Level 7
+            'ビール進行度/8.svg', // Level 8
+            'ビール進行度/9.svg', // Level 9
+            'ビール進行度/10.svg' // Level 10 (fullest)
+        ];
+        function renderRatingIcons(currentRating = 0) {
+            beerRatingContainer.innerHTML = ''; // Clear existing icons
+            for (let i = 1; i <= maxRating; i++) {
+                const img = document.createElement('img');
+                img.classList.add('beer-icon');
+                img.dataset.value = i;
+                // Use the specific image for this rating level
+                // The array is 0-indexed, so i-1
+                img.src = beerImagePaths[Math.min(i, beerImagePaths.length) - 1]; // Use the specific image for this rating level up to the max available images
+                img.alt = `Beer rating ${i} of ${maxRating}`;
+                if (i <= currentRating) {
+                    img.classList.add('selected-beer-icon');
+                }
+                img.addEventListener('click', () => {
+                    const rating = parseInt(img.dataset.value);
+                    beerRatingValueInput.value = rating;
+                    currentRatingDisplay.textContent = rating;
+                    renderRatingIcons(rating);
+                });
+                img.addEventListener('mouseover', () => {
+                    const hoverValue = parseInt(img.dataset.value);
+                    const icons = beerRatingContainer.querySelectorAll('.beer-icon');
+                    icons.forEach(icon => {
+                        if (parseInt(icon.dataset.value) <= hoverValue) {
+                            icon.classList.add('selected-beer-icon'); // Temporary highlight for hover
+                        } else {
+                            icon.classList.remove('selected-beer-icon');
+                        }
+                    });
+                });
+                img.addEventListener('mouseout', () => {
+                    // Re-render based on the actual selected rating
+                    renderRatingIcons(parseInt(beerRatingValueInput.value) || 0);
+                });
+                beerRatingContainer.appendChild(img);
+            }
+        }
+        // Initial render
+        renderRatingIcons(0);
+        // Image preview for upload
+        const fileUpload = document.getElementById('file-upload');
+        const imagePreview = document.getElementById('imagePreview');
+        fileUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.src = "";
+                imagePreview.classList.add('hidden');
+            }
+        });
+        // Form submission with API integration
+        const rateBeerForm = document.getElementById('rateBeerForm');
+        rateBeerForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const beerName = document.getElementById('beerName').value;
+            const rating = beerRatingValueInput.value;
+            const review = document.getElementById('beerReview').value;
+            const imageFile = fileUpload.files[0];
+
+            if (!beerName || !rating) {
+                alert('Please provide a beer name and a rating.');
+                return;
+            }
+
+            try {
+                // APIに評価を送信
+                await ratingAPI.submitRating({
+                    name: beerName,
+                    rating: rating,
+                    review: review,
+                    image: imageFile
+                });
+
+                // Recent Ratingsセクションを表示
+                const myRatingsSection = document.getElementById('myRatingsSection');
+                myRatingsSection.style.display = 'block';
+                
+                // 自分の評価を再読み込み
+                loadMyRatings();
+                
+                // フォームをリセット
+                rateBeerForm.reset();
+                imagePreview.src = "";
+                imagePreview.classList.add('hidden');
+                beerRatingValueInput.value = "0";
+                currentRatingDisplay.textContent = "0";
+                renderRatingIcons(0);
+                
+                alert('Rating submitted successfully!');
+            } catch (error) {
+                console.error('評価投稿エラー:', error);
+                
+                if (error.message.includes('認証が必要')) {
+                    alert('ログインが必要です！');
+                } else {
+                    alert('エラーが発生しました。再度お試しください。');
+                }
+            }
+        });
+        // APIの基本URL
+const API_BASE_URL = 'https://api.example.com';
+
+// 認証関連の関数
+const authAPI = {
+    // ログイン
+    login: async (email, password) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('userId', data.user.id);
+                return data;
+            } else {
+                throw new Error(data.message || 'ログインに失敗しました');
+            }
+        } catch (error) {
+            console.error('ログインエラー:', error);
+            throw error;
+        }
+    },
+    
+    // サインアップ
+    register: async (username, email, password) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('登録エラー:', error);
+            throw error;
+        }
+    },
+    
+    // ログアウト
+    logout: () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+    }
+};
+
+// ビール評価関連の関数
+const ratingAPI = {
+    // 評価を投稿
+    submitRating: async (beerData) => {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('認証が必要です');
+        
+        const formData = new FormData();
+        formData.append('beer_name', beerData.name);
+        formData.append('rating', beerData.rating);
+        formData.append('review', beerData.review);
+        if (beerData.image) {
+            formData.append('image', beerData.image);
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/ratings`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('評価投稿エラー:', error);
+            throw error;
+        }
+    },
+    
+    // 最近の評価を取得
+    getRecentRatings: async (limit = 10) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/ratings?limit=${limit}&sort_by=created_at:desc`);
+            return await response.json();
+        } catch (error) {
+            console.error('評価取得エラー:', error);
+            return [];
+        }
+    },
+    
+    // ビールごとの評価を取得
+    getBeerRatings: async (beerName) => {
+        try {
+            const encodedName = encodeURIComponent(beerName);
+            const response = await fetch(`${API_BASE_URL}/api/ratings?filter_by=beer_name:${encodedName}`);
+            return await response.json();
+        } catch (error) {
+            console.error('ビール評価取得エラー:', error);
+            return [];
+        }
+    },
+    
+    // お気に入りに追加/削除
+    toggleWantToHave: async (beerId) => {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('認証が必要です');
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/users/wishlist/${beerId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('お気に入り追加エラー:', error);
+            throw error;
+        }
+    },
+    
+    // お気に入りリスト取得
+    getWishlist: async () => {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('認証が必要です');
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/users/wishlist`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('お気に入りリスト取得エラー:', error);
+            return [];
+        }
+    }
+};
+
+// ページ切り替え処理
+document.addEventListener('DOMContentLoaded', function() {
+    const seekNavBtn = document.getElementById('seekNavBtn');
+    const valueNavBtn = document.getElementById('valueNavBtn');
+    const seekSection = document.getElementById('seekSection');
+    const valueSection = document.getElementById('valueSection');
+    
+    // デフォルトはValueセクションを表示
+    valueSection.style.display = 'block';
+    seekSection.style.display = 'none';
+    
+    // ナビゲーションボタンクリック時の処理
+    seekNavBtn.addEventListener('click', function() {
+        valueSection.style.display = 'none';
+        seekSection.style.display = 'block';
+        // ビールカタログを読み込む
+        loadBeerCatalog();
+    });
+    
+    valueNavBtn.addEventListener('click', function() {
+        seekSection.style.display = 'none';
+        valueSection.style.display = 'block';
+        // 自分の評価を読み込む
+        loadMyRatings();
+    });
+    
+    // ビールカタログを読み込む関数
+    async function loadBeerCatalog() {
+        const beerCatalog = document.getElementById('beerCatalog');
+        try {
+            // APIからビールの一覧を取得
+            const beers = await ratingAPI.getRecentRatings(20);
+            
+            if (beers.length === 0) {
+                beerCatalog.innerHTML = '<p class="text-gray-500 col-span-3 text-center">No beers found.</p>';
+                return;
+            }
+            
+            // ユニークなビール名のみをフィルタリング
+            const uniqueBeers = Array.from(new Set(beers.map(beer => beer.beer_name)))
+                .map(name => {
+                    return beers.find(beer => beer.beer_name === name);
+                });
+            
+            beerCatalog.innerHTML = '';
+            uniqueBeers.forEach(beer => {
+                const beerCard = createBeerCard(beer);
+                beerCatalog.appendChild(beerCard);
+            });
+        } catch (error) {
+            console.error('ビールカタログ読み込みエラー:', error);
+            beerCatalog.innerHTML = '<p class="text-gray-500 col-span-3 text-center">Error loading beers. Please try again.</p>';
+        }
+    }
+    
+    // ビールカード作成関数
+    function createBeerCard(beer) {
+        const card = document.createElement('div');
+        card.classList.add('bg-white', 'p-6', 'rounded-xl', 'shadow-md', 'cursor-pointer', 'hover:shadow-lg', 'transition');
+        
+        // 平均評価を計算（仮実装）
+        const avgRating = beer.rating || 0;
+        
+        card.innerHTML = `
+            <img src="${beer.image_url || 'image-placeholder-default.jpg'}" alt="${beer.beer_name}" class="w-full h-48 object-cover rounded-lg mb-4">
+            <h3 class="text-xl font-semibold text-yellow-600 mb-2">${beer.beer_name}</h3>
+            <div class="flex items-center mb-2">
+                <span class="text-yellow-500 font-bold text-lg mr-1">${avgRating}/10</span>
+            </div>
+        `;
+        
+        // ビール詳細表示のイベントリスナー
+        card.addEventListener('click', () => {
+            showBeerDetails(beer);
+        });
+        
+        return card;
+    }
+    
+    // ビール詳細を表示する関数
+    async function showBeerDetails(beer) {
+        const beerCatalogSection = document.getElementById('beerCatalog').parentElement;
+        const beerDetailSection = document.getElementById('beerDetailSection');
+        const detailBeerName = document.getElementById('detailBeerName');
+        const detailBeerImage = document.getElementById('detailBeerImage');
+        const detailAverageRating = document.getElementById('detailAverageRating');
+        const detailRatingIcons = document.getElementById('detailRatingIcons');
+        const beerReviewsList = document.getElementById('beerReviewsList');
+        const backToCatalog = document.getElementById('backToCatalog');
+        const wannaHaveBtn = document.getElementById('wannaHaveBtn');
+        
+        // ビール詳細を設定
+        detailBeerName.textContent = beer.beer_name;
+        detailBeerImage.src = beer.image_url || 'image-placeholder-default.jpg';
+        
+        try {
+            // このビールの評価を取得
+            const ratings = await ratingAPI.getBeerRatings(beer.beer_name);
+            const avgRating = ratings.length ? 
+                ratings.reduce((sum, b) => sum + parseInt(b.rating), 0) / ratings.length : 0;
+            
+            detailAverageRating.textContent = `${avgRating.toFixed(1)}/10`;
+            
+            // レビュー一覧を表示
+            beerReviewsList.innerHTML = '';
+            if (ratings.length === 0) {
+                beerReviewsList.innerHTML = '<p class="text-gray-500">No reviews yet for this beer.</p>';
+            } else {
+                ratings.forEach(rating => {
+                    const reviewEl = document.createElement('div');
+                    reviewEl.classList.add('border-b', 'border-gray-200', 'pb-4');
+                    reviewEl.innerHTML = `
+                        <div class="flex items-center mb-2">
+                            <span class="font-medium text-gray-700">${rating.user_name || 'Anonymous'}</span>
+                            <span class="text-yellow-500 font-bold ml-2">${rating.rating}/10</span>
+                        </div>
+                        <p class="text-gray-600">${rating.review || 'No review text provided.'}</p>
+                        <p class="text-xs text-gray-400 mt-1">Rated on ${new Date(rating.created_at).toLocaleDateString()}</p>
+                    `;
+                    beerReviewsList.appendChild(reviewEl);
+                });
+            }
+            
+            // Wanna Haveボタンの状態を更新
+            updateWannaHaveButton(wannaHaveBtn, beer.id);
+            
+            // 詳細表示に切り替え
+            beerCatalogSection.style.display = 'none';
+            beerDetailSection.style.display = 'block';
+            
+            // 戻るボタンのイベントリスナー
+            backToCatalog.addEventListener('click', () => {
+                beerDetailSection.style.display = 'none';
+                beerCatalogSection.style.display = 'block';
+            });
+            
+            // Wanna Haveボタンのイベントリスナー
+            wannaHaveBtn.addEventListener('click', async () => {
+                try {
+                    await ratingAPI.toggleWantToHave(beer.id);
+                    updateWannaHaveButton(wannaHaveBtn, beer.id);
+                } catch (error) {
+                    if (error.message.includes('認証が必要')) {
+                        alert('ログインが必要です');
+                    } else {
+                        alert('エラーが発生しました。再度お試しください。');
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error('ビール詳細取得エラー:', error);
+            beerReviewsList.innerHTML = '<p class="text-red-500">エラーが発生しました。再度お試しください。</p>';
+        }
+    }
+    
+    // Wanna Haveボタンの状態を更新
+    async function updateWannaHaveButton(button, beerId) {
+        try {
+            const wishlist = await ratingAPI.getWishlist();
+            const isWished = wishlist.some(item => item.beer_id === beerId);
+            
+            if (isWished) {
+                button.innerHTML = '<span class="material-icons mr-1">bookmark</span> Added to Wishlist';
+                button.classList.remove('bg-yellow-500');
+                button.classList.add('bg-gray-500');
+            } else {
+                button.innerHTML = '<span class="material-icons mr-1">bookmark_border</span> Wanna Have!';
+                button.classList.remove('bg-gray-500');
+                button.classList.add('bg-yellow-500');
+            }
+        } catch (error) {
+            // ログインしていない場合はデフォルト表示
+            button.innerHTML = '<span class="material-icons mr-1">bookmark_border</span> Wanna Have!';
+        }
+    }
+    
+    // 自分の評価を読み込む関数
+    async function loadMyRatings() {
+        const myRatingsFeed = document.getElementById('myRatingsFeed');
+        const myRatingsSection = document.getElementById('myRatingsSection');
+        
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                myRatingsSection.style.display = 'none';
+                return;
+            }
+            
+            const userId = localStorage.getItem('userId');
+            const response = await fetch(`${API_BASE_URL}/api/users/${userId}/ratings`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const myRatings = await response.json();
+            
+            if (myRatings.length === 0) {
+                myRatingsFeed.innerHTML = '<p class="text-gray-500 col-span-3 text-center">You haven\'t rated any beers yet.</p>';
+                myRatingsSection.style.display = 'block';
+                return;
+            }
+            
+            myRatingsFeed.innerHTML = '';
+            myRatings.forEach(rating => {
+                const ratingCard = document.createElement('div');
+                ratingCard.classList.add('bg-white', 'p-6', 'rounded-xl', 'shadow-md');
+                
+                let ratingStarsHTML = '';
+                for(let i=1; i<=maxRating; i++){
+                    if (i <= parseInt(rating.rating)) {
+                        ratingStarsHTML += `<img src="${beerImagePaths[Math.min(i, beerImagePaths.length) - 1]}" alt="Full beer mug icon" class="w-5 h-5">`;
+                    } else {
+                        ratingStarsHTML += `<img src="${beerImagePaths[0]}" alt="Empty beer mug icon" class="w-5 h-5 opacity-30">`;
+                    }
+                }
+                
+                ratingCard.innerHTML = `
+                    <img src="${rating.image_url || 'image-placeholder-default.jpg'}" alt="Image of ${rating.beer_name}" class="w-full h-48 object-cover rounded-lg mb-4">
+                    <h3 class="text-xl font-semibold text-yellow-600 mb-2">${rating.beer_name}</h3>
+                    <div class="flex items-center mb-2">
+                        <span class="text-yellow-500 font-bold text-lg mr-1">${rating.rating}/10</span>
+                        <div class="flex">${ratingStarsHTML}</div>
+                    </div>
+                    <p class="text-gray-600 mb-3 text-sm">"${rating.review || 'No review provided.'}"</p>
+                    <p class="text-xs text-gray-400">Rated on ${new Date(rating.created_at).toLocaleDateString()}</p>
+                `;
+                
+                myRatingsFeed.appendChild(ratingCard);
+            });
+            
+            myRatingsSection.style.display = 'block';
+            
+        } catch (error) {
+            console.error('自分の評価読み込みエラー:', error);
+            myRatingsSection.style.display = 'none';
+        }
+    }
+});
+
+// ページの最後のスクリプトブロック内に追加
+
+// 認証関連のUIコントロール
+document.addEventListener('DOMContentLoaded', function() {
+    const loginBtn = document.getElementById('loginBtn');
+    const authModal = document.getElementById('authModal');
+    const closeAuthModal = document.getElementById('closeAuthModal');
+    const showSignupForm = document.getElementById('showSignupForm');
+    const showLoginForm = document.getElementById('showLoginForm');
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const authModalTitle = document.getElementById('authModalTitle');
+
+    // ログイン状態の確認と表示更新
+    checkAuthStatus();
+
+    // ログインボタンクリックでモーダル表示
+    loginBtn.addEventListener('click', function() {
+        const token = localStorage.getItem('token');
+        if (token) {
+            // すでにログインしている場合はログアウト
+            if (confirm('ログアウトしますか？')) {
+                authAPI.logout();
+                updateUIForLogout();
+            }
+        } else {
+            // ログインモーダルを表示
+            authModal.classList.remove('hidden');
+        }
+    });
+
+    // モーダルを閉じる
+    closeAuthModal.addEventListener('click', function() {
+        authModal.classList.add('hidden');
+    });
+
+    // ログインとサインアップフォームの切り替え
+    showSignupForm.addEventListener('click', function(e) {
+        e.preventDefault();
+        loginForm.classList.add('hidden');
+        signupForm.classList.remove('hidden');
+        authModalTitle.textContent = 'Sign Up';
+    });
+
+    showLoginForm.addEventListener('click', function(e) {
+        e.preventDefault();
+        signupForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        authModalTitle.textContent = 'Login';
+    });
+
+    // ログインフォーム送信
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            const data = await authAPI.login(email, password);
+            // ログイン成功
+            authModal.classList.add('hidden');
+            updateUIForLogin(data.user);
+            alert('ログインに成功しました！');
+        } catch (error) {
+            alert('ログインエラー: ' + error.message);
+        }
+    });
+
+    // サインアップフォーム送信
+    signupForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const username = document.getElementById('signupUsername').value;
+        const email = document.getElementById('signupEmail').value;
+        const password = document.getElementById('signupPassword').value;
+
+        try {
+            const data = await authAPI.register(username, email, password);
+            if (data.token) {
+                // 登録と同時にログイン状態になる場合
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('userId', data.user.id);
+                updateUIForLogin(data.user);
+                authModal.classList.add('hidden');
+                alert('アカウント登録に成功しました！');
+            } else {
+                // 登録成功したがログインは別途必要な場合
+                alert('アカウント登録に成功しました。ログインしてください。');
+                signupForm.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+                authModalTitle.textContent = 'Login';
+            }
+        } catch (error) {
+            alert('登録エラー: ' + error.message);
+        }
+    });
+
+    // ログイン状態の確認
+    function checkAuthStatus() {
+        const token = localStorage.getItem('token');
+        if (token) {
+            // トークンの検証
+            fetch(`${API_BASE_URL}/api/auth/verify`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    updateUIForLogin(data.user);
+                } else {
+                    // 無効なトークンの場合
+                    authAPI.logout();
+                    updateUIForLogout();
+                }
+            })
+            .catch(() => {
+                // エラー時は念のためログアウト
+                authAPI.logout();
+                updateUIForLogout();
+            });
+        } else {
+            updateUIForLogout();
+        }
+    }
+
+    // ログイン時のUI更新
+    function updateUIForLogin(user) {
+        loginBtn.textContent = 'Logout';
+        loginBtn.classList.remove('bg-white', 'text-yellow-600');
+        loginBtn.classList.add('bg-red-500', 'text-white');
+        
+        // ユーザー名を表示する要素があれば更新
+        const userNameElements = document.querySelectorAll('.user-name');
+        userNameElements.forEach(el => {
+            el.textContent = user.username || 'User';
+        });
+        
+        // マイレーティングセクションを表示
+        loadMyRatings();
+    }
+
+    // ログアウト時のUI更新
+    function updateUIForLogout() {
+        loginBtn.textContent = 'Login';
+        loginBtn.classList.remove('bg-red-500', 'text-white');
+        loginBtn.classList.add('bg-white', 'text-yellow-600');
+        
+        // マイレーティングセクションを非表示
+        const myRatingsSection = document.getElementById('myRatingsSection');
+        if (myRatingsSection) {
+            myRatingsSection.style.display = 'none';
+        }
+    }
+
+    // モーダル外クリックで閉じる機能（オプション）
+    window.addEventListener('click', function(event) {
+        if (event.target === authModal) {
+            authModal.classList.add('hidden');
+        }
+    });
+});
+
+// ログイントークン検証用APIの追加
+authAPI.verifyToken = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return { valid: false };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Token verification error:', error);
+        return { valid: false };
+    }
+};
+    </script>
+
+</body></html>
