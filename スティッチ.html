@@ -2,886 +2,1150 @@
 <html lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Beer Rater</title>
+<title>Cheers!</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Icons" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet"/>
 <style>
-        body {
-            font-family: 'Roboto', sans-serif;
+    /*
+      Tone: JRPG status-screen (hard pixel borders, offset drop-shadow panels)
+      x arcade-cabinet CRT marquee, with a logged-out landing that reads like a
+      pub "wall of polaroids". One dominant accent (amber = beer) + 3 semantic hues.
+    */
+    :root {
+        --bg: #0b0714;
+        --bg-alt: #140c24;
+        --panel: #1c1132;
+        --panel-light: #2a1a49;
+        --ink: #050308;
+        --accent: #ffcc33;       /* dominant brand hue: amber / beer color */
+        --accent-2: #ff4d7e;     /* semantic: danger / destructive only */
+        --accent-3: #35e8b0;     /* semantic: success / achieved only */
+        --accent-4: #58c9ff;     /* semantic: interactive / focus / link only */
+        --text: #f3ecff;
+        --text-dim: #a996cf;
+        --danger: #ff4d4d;
+        --wood: #2a1c10;
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --px: 4px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { background: var(--bg); color: var(--text); }
+
+    body {
+        font-family: 'VT323', monospace;
+        font-size: 20px;
+        line-height: 1.5;
+        min-height: 100vh;
+        position: relative;
+        background-image:
+            radial-gradient(circle at 15% 20%, rgba(255,204,51,0.05), transparent 42%),
+            radial-gradient(circle at 85% 0%, rgba(88,201,255,0.06), transparent 45%),
+            linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 100%);
+    }
+
+    /* CRT scanline overlay */
+    body::before {
+        content: "";
+        position: fixed; inset: 0;
+        pointer-events: none; z-index: 999;
+        background: repeating-linear-gradient(to bottom,
+            rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px,
+            transparent 2px, transparent 3px);
+        mix-blend-mode: multiply; opacity: 0.5;
+    }
+    body::after {
+        content: ""; position: fixed; inset: 0;
+        pointer-events: none; z-index: 998;
+        box-shadow: inset 0 0 140px rgba(0,0,0,0.85);
+    }
+
+    h1, h2, h3, .pixel-font, button, .btn-pixel, .nav-link, .nav-logo {
+        font-family: 'Press Start 2P', 'VT323', monospace;
+    }
+
+    ::selection { background: var(--accent-2); color: var(--ink); }
+    a { text-decoration: none; }
+
+    :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+        outline: 3px solid var(--accent-4);
+        outline-offset: 2px;
+    }
+
+    /* ---------- Pixel border / panel system ---------- */
+    .pixel-border {
+        border: 3px solid var(--ink);
+        box-shadow: 0 0 0 2px var(--panel-light), var(--px) var(--px) 0 0 rgba(0,0,0,0.75);
+        border-radius: 0;
+    }
+    .pixel-panel {
+        background: var(--panel);
+        border: 3px solid var(--ink);
+        box-shadow: 0 0 0 2px var(--panel-light) inset, 6px 6px 0 0 rgba(0,0,0,0.6);
+        border-radius: 0;
+    }
+
+    /* ---------- Nav ---------- */
+    .retro-nav {
+        background: var(--ink);
+        border-bottom: 4px solid var(--accent);
+        box-shadow: 0 4px 0 0 rgba(0,0,0,0.5);
+        position: sticky; top: 0; z-index: 100;
+    }
+    .nav-logo {
+        color: var(--accent); font-size: 16px;
+        display: flex; align-items: center; gap: 10px;
+        text-shadow: 2px 2px 0 rgba(0,0,0,0.6); letter-spacing: 1px;
+    }
+    .nav-logo svg { width: 26px; height: 32px; filter: drop-shadow(0 0 6px rgba(255,204,51,0.6)); }
+    .nav-link {
+        color: var(--text-dim); font-size: 11px; padding: 10px;
+        background: none; border: 2px solid transparent; cursor: pointer;
+        transition: color .12s, border-color .12s; white-space: nowrap;
+    }
+    .nav-link:hover { color: var(--accent-4); }
+    .nav-link.active {
+        color: var(--bg); background: var(--accent);
+        border-color: var(--ink); box-shadow: 3px 3px 0 0 rgba(0,0,0,0.6);
+    }
+    .nav-links-wrap { display: flex; align-items: center; gap: 8px; }
+    .hamburger {
+        display: none; background: var(--panel);
+        border: 2px solid var(--accent); color: var(--accent);
+        width: 40px; height: 40px; font-size: 16px; cursor: pointer;
+        align-items: center; justify-content: center;
+    }
+    /* Section links + hamburger only make sense once logged in */
+    body:not(.logged-in) #navLinksWrap,
+    body:not(.logged-in) #hamburgerBtn { display: none; }
+
+    /* ---------- Buttons ---------- */
+    .btn-pixel {
+        font-size: 12px; padding: 12px 18px;
+        background: var(--accent); color: var(--ink);
+        border: 3px solid var(--ink); box-shadow: 4px 4px 0 0 rgba(0,0,0,0.7);
+        cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+        gap: 8px; transition: transform .06s, box-shadow .06s, background .12s; letter-spacing: 0.5px;
+    }
+    .btn-pixel:hover { background: #ffdb70; }
+    .btn-pixel:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 rgba(0,0,0,0.7); }
+    .btn-pixel-danger { background: var(--accent-2); color: var(--ink); }
+    .btn-pixel-danger:hover { background: #ff7a9c; }
+    .btn-pixel-success { background: var(--accent-3); color: var(--ink); }
+    .btn-pixel-success:hover { background: #6cf2c8; }
+    .btn-pixel-ghost { background: var(--panel); color: var(--text); border-color: var(--accent); }
+    .btn-pixel[disabled] { opacity: .5; cursor: not-allowed; }
+    .btn-lg { font-size: 14px; padding: 16px 24px; }
+
+    /* ---------- Inputs ---------- */
+    .input-pixel, textarea.input-pixel {
+        width: 100%; background: var(--bg-alt); color: var(--text);
+        border: 3px solid var(--ink);
+        box-shadow: inset 3px 3px 0 0 rgba(0,0,0,0.5), 0 0 0 2px var(--panel-light);
+        padding: 12px 14px; font-family: 'VT323', monospace; font-size: 19px; border-radius: 0;
+    }
+    .input-pixel::placeholder { color: var(--text-dim); }
+    label.retro-label {
+        font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--accent-4);
+        display: block; margin-bottom: 10px; letter-spacing: 0.5px;
+    }
+
+    /* ---------- Section titles ---------- */
+    .section-title {
+        color: var(--accent); font-size: 18px; margin-bottom: 24px;
+        text-shadow: 3px 3px 0 rgba(0,0,0,0.6);
+        display: flex; align-items: center; gap: 12px;
+    }
+    .section-title::before {
+        content: ""; width: 14px; height: 14px; background: var(--accent); flex-shrink: 0;
+    }
+
+    /* ---------- Hero ---------- */
+    .hero { text-align: center; padding: 48px 16px 24px; }
+    .hero h1 {
+        font-size: clamp(34px, 9vw, 76px); color: var(--accent);
+        text-shadow: 5px 5px 0 rgba(0,0,0,0.6), 0 0 22px rgba(255,204,51,0.35);
+        line-height: 1.1; margin-bottom: 20px; letter-spacing: 2px;
+        animation: flicker 5s infinite;
+    }
+    .hero .tagline { color: var(--text-dim); font-size: 22px; max-width: 620px; margin: 0 auto; }
+    @keyframes flicker {
+        0%, 92%, 100% { opacity: 1; } 93% { opacity: .7; }
+        94% { opacity: 1; } 95% { opacity: .8; } 96% { opacity: 1; }
+    }
+    .hero-row { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin-top: 26px; }
+    .hero-row svg { height: 40px; width: auto; animation: bob 1.6s ease-in-out infinite; }
+    .hero-row svg:nth-child(2) { animation-delay: .12s; }
+    .hero-row svg:nth-child(3) { animation-delay: .24s; }
+    .hero-row svg:nth-child(4) { animation-delay: .36s; }
+    .hero-row svg:nth-child(5) { animation-delay: .48s; }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    .lp-cta { margin-top: 30px; }
+    .lp-note { color: var(--text-dim); font-size: 17px; margin-top: 14px; }
+
+    .stagger > * { opacity: 0; transform: translateY(12px); animation: rise .55s var(--ease-out) forwards; }
+    .stagger > *:nth-child(1) { animation-delay: 0ms; }
+    .stagger > *:nth-child(2) { animation-delay: 90ms; }
+    .stagger > *:nth-child(3) { animation-delay: 180ms; }
+    .stagger > *:nth-child(4) { animation-delay: 270ms; }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+
+    /* ---------- The Wall (polaroids pinned to a pub wall) ---------- */
+    .wall {
+        margin-top: 26px;
+        background-color: var(--wood);
+        background-image:
+            linear-gradient(180deg, rgba(0,0,0,.28), rgba(0,0,0,.5)),
+            repeating-linear-gradient(90deg, #33230f 0 46px, #2a1c10 46px 48px, #24170c 48px 50px);
+        border: 4px solid var(--ink);
+        box-shadow: inset 0 0 70px rgba(0,0,0,.75), 6px 6px 0 rgba(0,0,0,.6);
+        padding: 26px 16px 44px;
+    }
+    .wall-head { text-align: center; margin-bottom: 8px; }
+    .wall-head h2 {
+        display: inline-flex; color: var(--accent); font-size: 16px;
+        text-shadow: 3px 3px 0 rgba(0,0,0,0.7); letter-spacing: 1px;
+    }
+    .wall-head p { color: #d8c39a; font-size: 18px; margin-top: 6px; }
+    .polaroid-wall {
+        display: flex; flex-wrap: wrap; gap: 30px 26px;
+        justify-content: center; align-items: flex-start; padding-top: 22px;
+    }
+    .polaroid {
+        background: #f4efe2; width: 208px; padding: 12px 12px 0;
+        border: 1px solid #d8ceb2;
+        box-shadow: 5px 8px 0 rgba(0,0,0,0.5);
+        position: relative; transform: rotate(var(--rot, -2deg));
+        transition: transform .14s var(--ease-out), box-shadow .14s;
+    }
+    .polaroid:hover {
+        transform: rotate(0deg) translateY(-6px) scale(1.04);
+        box-shadow: 9px 14px 0 rgba(0,0,0,0.55); z-index: 5;
+    }
+    .polaroid .photo {
+        background: radial-gradient(circle at 50% 120%, #2a1a49, #120a20 70%);
+        height: 152px; display: flex; align-items: center; justify-content: center;
+        border: 2px solid #0c0814; overflow: hidden;
+    }
+    .polaroid .photo svg { height: 122px; width: auto; }
+    .polaroid .caption { padding: 12px 4px 16px; color: #2a2016; }
+    .polaroid .p-name { font-size: 27px; line-height: 1; color: #221808; }
+    .polaroid .p-review { font-size: 18px; line-height: 1.15; color: #4a3d28; margin-top: 4px; min-height: 42px; }
+    .polaroid .p-meta {
+        display: flex; align-items: center; justify-content: space-between;
+        font-size: 17px; color: #6b5a3c; margin-top: 8px;
+        border-top: 2px dotted #c9bd9c; padding-top: 6px;
+    }
+    .polaroid .p-rating { display: inline-flex; align-items: center; gap: 5px; color: #7a4a12; }
+    .polaroid .p-rating svg { height: 18px; width: auto; }
+    .pin {
+        position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+        width: 16px; height: 16px; border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, #ffd1dc, var(--accent-2) 60%, #b3234c);
+        box-shadow: 0 4px 0 rgba(0,0,0,.45); border: 1px solid #7a1330;
+    }
+    .polaroid:nth-child(3n) .pin { background: radial-gradient(circle at 34% 30%, #c7f6e8, var(--accent-3) 60%, #159c74); border-color:#0d5c43; }
+    .polaroid:nth-child(3n+1) .pin { background: radial-gradient(circle at 34% 30%, #cdeeff, var(--accent-4) 60%, #1f7bb0); border-color:#0c4a6e; }
+
+    /* ---------- Rating widget (progressive fill glasses) ---------- */
+    #beerRatingContainer { display: flex; flex-wrap: wrap; gap: 2px; }
+    .rating-pip { background: none; border: none; padding: 6px 4px; cursor: pointer; display: inline-flex; }
+    .rating-pip svg {
+        height: 46px; width: auto; transition: transform .1s, filter .15s;
+        filter: brightness(0.4) saturate(0.5);
+    }
+    .rating-pip:hover svg { transform: translateY(-4px); filter: brightness(0.7) saturate(0.9); }
+    .rating-pip.selected-beer-icon svg {
+        filter: brightness(1.05) saturate(1.35) drop-shadow(0 0 6px rgba(255,204,51,0.6));
+        transform: translateY(-2px);
+    }
+
+    /* ---------- Upload dropzone ---------- */
+    .dropzone { border: 3px dashed var(--accent-4); background: var(--bg-alt); padding: 28px 16px; text-align: center; color: var(--text-dim); }
+    .dropzone .upload-icon { font-size: 34px; color: var(--accent-4); }
+
+    /* ---------- Cards ---------- */
+    .beer-card, .rating-card {
+        background: var(--panel); border: 3px solid var(--ink);
+        box-shadow: 6px 6px 0 0 rgba(0,0,0,0.6); padding: 18px;
+        cursor: pointer; transition: transform .1s, box-shadow .1s;
+    }
+    .beer-card:hover, .rating-card:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 0 rgba(0,0,0,0.6); }
+    .rating-card { cursor: default; }
+    .beer-card img, .rating-card img {
+        width: 100%; height: 176px; object-fit: cover;
+        border: 3px solid var(--ink); margin-bottom: 14px; filter: saturate(1.1);
+    }
+    .card-photo {
+        background: radial-gradient(circle at 50% 120%, #2a1a49, #120a20 70%);
+        height: 176px; border: 3px solid var(--ink); margin-bottom: 14px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .card-photo svg { height: 138px; width: auto; }
+    .beer-card h3, .rating-card h3 {
+        font-family: 'Press Start 2P', monospace; font-size: 12px; color: var(--accent);
+        margin-bottom: 10px; line-height: 1.5;
+    }
+    .score-badge {
+        font-family: 'Press Start 2P', monospace; font-size: 13px; color: var(--ink);
+        background: var(--accent-3); padding: 4px 8px; display: inline-block;
+        box-shadow: 2px 2px 0 rgba(0,0,0,0.6);
+    }
+
+    .px-icon { display: inline-flex; align-items: center; justify-content: center; font-family: 'Press Start 2P', monospace; line-height: 1; }
+
+    /* ---------- Modal ---------- */
+    #authModal { background: rgba(5,3,8,0.88); }
+    #authModal .pixel-panel { background: var(--panel); }
+
+    /* ---------- Footer ---------- */
+    .retro-footer {
+        background: var(--ink); border-top: 4px solid var(--accent);
+        color: var(--text-dim); text-align: center; padding: 28px 16px; margin-top: 64px; font-size: 18px;
+    }
+    .retro-footer .blink { animation: blink 1.1s step-end infinite; color: var(--accent); }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .divider-bar { display: flex; gap: 6px; justify-content: center; margin: 8px 0 4px; }
+    .divider-bar span { width: 10px; height: 4px; background: var(--panel-light); }
+    .divider-bar span:nth-child(odd) { background: var(--accent); }
+
+    main { position: relative; z-index: 1; }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 767px) {
+        body { font-size: 18px; }
+        .hero { padding: 34px 12px 20px; }
+        .nav-links-wrap {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: var(--ink); border-bottom: 4px solid var(--accent);
+            flex-direction: column; align-items: stretch; padding: 10px; gap: 4px; display: none;
         }
-        .beer-icon {
-            width: 40px;height: 40px;cursor: pointer;
-            transition: transform 0.2s;
-            filter: brightness(0.7) grayscale(0.3); /* デフォルト時は暗く、やや灰色がかった表示 */
-        }
-        .beer-icon:hover {
-            transform: scale(1.1);
-            filter: brightness(0.9); /* ホバー時は少し明るく */
-        }
-        .selected-beer-icon {
-            filter: brightness(1.3) saturate(1.8) !important; /* 選択時はより明るく、鮮やかに */
-        }
-    </style>
+        .nav-links-wrap.open { display: flex; }
+        .nav-link { text-align: center; padding: 12px; font-size: 12px; }
+        .hamburger { display: flex; }
+        .rating-pip svg { height: 36px; }
+        .polaroid { width: 200px; }
+        .pixel-panel, .beer-card, .rating-card { box-shadow: 4px 4px 0 0 rgba(0,0,0,0.6); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .hero h1, .hero-row svg, .retro-footer .blink { animation: none; }
+        .stagger > * { animation: none; opacity: 1; transform: none; }
+    }
+</style>
 </head>
-<body class="bg-yellow-50 text-gray-800">
-<!-- nav部分を変更 -->
-<nav class="bg-yellow-500 p-4 shadow-md">
-  <div class="container mx-auto flex justify-between items-center">
-    <a class="text-2xl font-bold text-white" href="#">Beer Rater</a>
-    <div class="space-x-4">
-      <a class="text-white hover:text-yellow-100 cursor-pointer" data-section="seek" id="seekNavBtn">Seek Beers</a>
-      <a class="text-white hover:text-yellow-100 cursor-pointer" data-section="value" id="valueNavBtn">Value Beers</a>
-      <button class="bg-white text-yellow-600 px-4 py-2 rounded-full hover:bg-yellow-100 transition duration-300" id="loginBtn">Login</button>
+<body>
+
+<!-- Simple mug sprite used only for the nav logo -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="pixelBeer" viewBox="0 0 14 16" shape-rendering="crispEdges">
+      <rect x="3" y="0" width="7" height="1" fill="#2a1608"/>
+      <rect x="2" y="1" width="9" height="12" fill="#2a1608"/>
+      <rect x="2" y="13" width="9" height="1" fill="#2a1608"/>
+      <rect x="3" y="14" width="7" height="1" fill="#2a1608"/>
+      <rect x="10" y="4" width="3" height="1" fill="#2a1608"/>
+      <rect x="12" y="4" width="1" height="7" fill="#2a1608"/>
+      <rect x="10" y="10" width="3" height="1" fill="#2a1608"/>
+      <rect x="3" y="0" width="7" height="1" fill="#fff6e0"/>
+      <rect x="3" y="1" width="7" height="1" fill="#fff6e0"/>
+      <rect x="3" y="2" width="7" height="1" fill="#ffe9b3"/>
+      <rect x="3" y="3" width="7" height="9" fill="#ffb100"/>
+      <rect x="3" y="12" width="7" height="1" fill="#e08e00"/>
+      <rect x="4" y="4" width="1" height="6" fill="#ffd966"/>
+      <rect x="8" y="1" width="1" height="1" fill="#ffe9b3"/>
+    </symbol>
+  </defs>
+</svg>
+
+<nav class="retro-nav">
+  <div class="container mx-auto px-4 py-3 flex justify-between items-center relative">
+    <a class="nav-logo" href="#" id="navLogo">
+      <svg viewBox="0 0 14 16" aria-hidden="true"><use href="#pixelBeer"></use></svg>
+      Cheers!
+    </a>
+    <div class="flex items-center gap-3">
+      <div class="nav-links-wrap" id="navLinksWrap">
+        <button type="button" class="nav-link" id="seekNavBtn">Seek Beers</button>
+        <button type="button" class="nav-link" id="valueNavBtn">Value Beers</button>
+      </div>
+      <button class="btn-pixel" id="loginBtn" style="font-size:10px; padding:10px 14px;">Login</button>
+      <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu" aria-expanded="false">☰</button>
     </div>
   </div>
 </nav>
 
-<!-- main部分を変更 -->
-<main class="container mx-auto p-4 mt-8">
-  <section class="mb-12 text-center">
-    <h1 class="text-4xl font-bold text-yellow-700 mb-4">Discover and Rate Your Favorite Beers</h1>
-    <p class="text-lg text-gray-600">Share your beer experiences with a vibrant community of enthusiasts.</p>
+<main class="container mx-auto p-4 mt-4">
+
+  <!-- ================= LANDING (logged-out) ================= -->
+  <section id="landingSection" class="app-section">
+    <div class="hero stagger">
+      <h1>Cheers!</h1>
+      <p class="tagline">Rate every pour, pin your favorites to the wall, and see what the crew is drinking.</p>
+      <div class="hero-row" id="heroRow" aria-hidden="true"></div>
+      <div class="lp-cta">
+        <button class="btn-pixel btn-lg" id="lpLoginCta">
+          <span class="px-icon" aria-hidden="true">▶</span> Login to Start Rating
+        </button>
+        <p class="lp-note">You need to log in to rate beers and add your own to the wall.</p>
+      </div>
+    </div>
+
+    <div class="wall">
+      <div class="wall-head">
+        <h2>★ On The Wall ★</h2>
+        <p>What everyone's been drinking</p>
+      </div>
+      <div class="polaroid-wall" id="polaroidWall"></div>
+    </div>
   </section>
 
-  <!-- Valueセクション（ビール評価フォーム） -->
-  <section id="valueSection" class="app-section">
-    <div class="bg-white p-8 rounded-xl shadow-lg mb-12">
-      <h2 class="text-2xl font-semibold text-yellow-600 mb-6">Rate a New Beer</h2>
+  <!-- ================= APP: Rate a beer (logged-in) ================= -->
+  <section id="valueSection" class="app-section" style="display: none;">
+    <div class="hero" style="padding-bottom:8px;">
+      <h1 style="font-size:clamp(24px,5vw,40px);" id="appGreeting">Cheers!</h1>
+    </div>
+    <div class="divider-bar" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+
+    <div class="pixel-panel p-6 md:p-8 mb-12">
+      <h2 class="section-title">Rate a New Beer</h2>
       <form id="rateBeerForm">
         <div class="mb-6">
-<label class="block text-sm font-medium text-gray-700 mb-1" for="beerName">Beer Name</label>
-<input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="beerName" name="beerName" placeholder="e.g., Craft Lager" type="text"/>
-</div>
-<div class="mb-6">
-<label class="block text-sm font-medium text-gray-700 mb-1" for="beerImage">Upload Image</label>
-<div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
-<div class="space-y-1 text-center">
-<span class="material-icons text-5xl text-gray-400">cloud_upload</span>
-<div class="flex text-sm text-gray-600">
-<label class="relative cursor-pointer bg-white rounded-md font-medium text-yellow-600 hover:text-yellow-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-yellow-500" for="file-upload">
-<span>Upload a file</span>
-<input accept="image/*" class="sr-only" id="file-upload" name="file-upload" type="file"/>
-</label>
-<p class="pl-1">or drag and drop</p>
-</div>
-<p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-</div>
-</div>
-<img alt="Preview of uploaded beer image" class="mt-4 max-h-48 rounded-lg hidden mx-auto" id="imagePreview" src=""/>
-</div>
-<div class="mb-6">
-<label class="block text-sm font-medium text-gray-700 mb-2">Your Rating (1-10)</label>
-<div class="flex items-center space-x-1" id="beerRatingContainer">
-</div>
-<input id="beerRatingValue" name="beerRatingValue" type="hidden"/>
-<p class="text-sm text-gray-500 mt-2" id="ratingFeedback">Selected rating: <span id="currentRatingDisplay">0</span>/10</p>
-</div>
-<div class="mb-6">
-<label class="block text-sm font-medium text-gray-700 mb-1" for="beerReview">Your Review (Optional)</label>
-<textarea class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="beerReview" name="beerReview" placeholder="What did you think of this beer?" rows="4"></textarea>
-</div>
-<div>
-<button class="w-full bg-yellow-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-yellow-600 transition duration-300 flex items-center justify-center" type="submit">
-<span class="material-icons mr-2">send</span>
-                        Submit Rating
-                    </button>
-</div>
-</form>
+          <label class="retro-label" for="beerName">Beer Name</label>
+          <input class="input-pixel" id="beerName" name="beerName" placeholder="e.g., Craft Lager" type="text"/>
+        </div>
+        <div class="mb-6">
+          <label class="retro-label" for="file-upload">Upload Image</label>
+          <div class="dropzone">
+            <div class="space-y-2">
+              <div class="upload-icon px-icon" aria-hidden="true">▲</div>
+              <div class="flex justify-center text-sm gap-1" style="font-size:18px;">
+                <label class="cursor-pointer" for="file-upload" style="color:var(--accent-4);">
+                  <span>Upload a file</span>
+                  <input accept="image/*" class="sr-only" id="file-upload" name="file-upload" type="file"/>
+                </label>
+                <p>or drag and drop</p>
+              </div>
+              <p style="font-size:14px; color:var(--text-dim);">PNG, JPG, GIF up to 10MB</p>
+            </div>
+          </div>
+          <img alt="Preview of uploaded beer image" class="mt-4 max-h-48 hidden mx-auto pixel-border" id="imagePreview" src=""/>
+        </div>
+        <div class="mb-6">
+          <label class="retro-label" id="ratingLabel">Your Rating &mdash; empty glass to overflowing (1-10)</label>
+          <div id="beerRatingContainer" role="group" aria-labelledby="ratingLabel"></div>
+          <input id="beerRatingValue" name="beerRatingValue" type="hidden"/>
+          <p class="mt-3" id="ratingFeedback" style="color:var(--text-dim);">Selected rating: <span id="currentRatingDisplay" style="color:var(--accent);">0</span>/10</p>
+        </div>
+        <div class="mb-6">
+          <label class="retro-label" for="beerReview">Your Review (Optional)</label>
+          <textarea class="input-pixel" id="beerReview" name="beerReview" placeholder="What did you think of this beer?" rows="4"></textarea>
+        </div>
+        <div>
+          <button class="btn-pixel w-full" type="submit">
+            <span class="px-icon" aria-hidden="true">▶</span> Submit Rating
+          </button>
+        </div>
+      </form>
     </div>
     <div id="myRatingsSection" style="display: none;">
-      <h2 class="text-3xl font-semibold text-yellow-700 mb-6">My Ratings</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="myRatingsFeed">
-        <!-- ユーザー自身の評価が表示される -->
-      </div>
+      <h2 class="section-title">My Ratings</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="myRatingsFeed"></div>
     </div>
   </section>
 
-  <!-- Seekセクション（他のユーザーのビール評価） -->
+  <!-- ================= APP: Seek beers (logged-in) ================= -->
   <section id="seekSection" class="app-section" style="display: none;">
-    <div class="bg-white p-8 rounded-xl shadow-lg mb-12">
-      <h2 class="text-2xl font-semibold text-yellow-600 mb-6">Discover Beers</h2>
+    <div class="pixel-panel p-6 md:p-8 mb-12 mt-6">
+      <h2 class="section-title">Discover Beers</h2>
       <div class="mb-6">
-        <input type="text" id="beerSearchInput" placeholder="Search beers..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500">
+        <input type="text" id="beerSearchInput" placeholder="Search beers..." class="input-pixel">
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="beerCatalog">
-        <!-- ビールカタログがここに表示されます -->
-        <p class="text-gray-500 col-span-3 text-center">Loading beers...</p>
+        <p class="col-span-3 text-center" style="color:var(--text-dim);">Loading beers...</p>
       </div>
     </div>
 
-    <!-- 選択されたビールの詳細 -->
-    <div id="beerDetailSection" class="bg-white p-8 rounded-xl shadow-lg mb-12" style="display: none;">
+    <div id="beerDetailSection" class="pixel-panel p-6 md:p-8 mb-12" style="display: none;">
       <div class="flex justify-between items-start mb-6">
-        <h2 class="text-2xl font-semibold text-yellow-600" id="detailBeerName">Beer Name</h2>
-        <button id="backToCatalog" class="text-gray-500 hover:text-gray-700">
-          <span class="material-icons">arrow_back</span> Back
+        <h2 class="section-title" id="detailBeerName" style="margin-bottom:0;">Beer Name</h2>
+        <button id="backToCatalog" class="btn-pixel btn-pixel-ghost" style="font-size:10px; padding:8px 12px;">
+          <span class="px-icon" aria-hidden="true">◀</span> Back
         </button>
       </div>
       <div class="flex flex-col md:flex-row gap-8">
         <div class="md:w-1/3">
-          <img id="detailBeerImage" src="" alt="Beer Image" class="w-full rounded-lg shadow-md">
+          <div class="card-photo" id="detailBeerPhoto" style="height:220px;"></div>
           <div class="mt-4 flex justify-center">
-            <button id="wannaHaveBtn" class="bg-yellow-500 text-white px-4 py-2 rounded-full hover:bg-yellow-600 transition duration-300 flex items-center">
-              <span class="material-icons mr-1">bookmark_border</span> Wanna Have!
+            <button id="wannaHaveBtn" class="btn-pixel">
+              <span class="px-icon" aria-hidden="true">☆</span> Wanna Have!
             </button>
           </div>
         </div>
         <div class="md:w-2/3">
           <div class="mb-4">
-            <div class="flex items-center">
-              <span class="text-yellow-500 font-bold text-xl mr-2" id="detailAverageRating">0/10</span>
+            <div class="flex items-center gap-3">
+              <span class="score-badge" id="detailAverageRating">0/10</span>
               <div class="flex" id="detailRatingIcons"></div>
             </div>
-            <p class="text-sm text-gray-500" id="detailRatingCount">0 ratings</p>
+            <p class="mt-2" style="color:var(--text-dim);" id="detailRatingCount">0 ratings</p>
           </div>
           <div id="beerReviewsList" class="space-y-4">
-            <!-- レビューがここに表示されます -->
-            <p class="text-gray-500">No reviews yet for this beer.</p>
+            <p style="color:var(--text-dim);">No reviews yet for this beer.</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 </main>
-<footer class="bg-yellow-600 text-white text-center p-6 mt-12">
-<p>© 2023 Beer Rater. All rights reserved.</p>
-<p class="text-sm">Drink responsibly.</p>
+
+<footer class="retro-footer">
+  <p class="pixel-font" style="font-size:11px; color:var(--accent); margin-bottom:10px;">CHEERS!<span class="blink" aria-hidden="true">_</span></p>
+  <p>© 2023 Cheers! All rights reserved.</p>
+  <p style="font-size:14px; margin-top:4px;">Drink responsibly.</p>
 </footer>
 
 <!-- ログイン/サインアップモーダル -->
-<div id="authModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 hidden">
-  <div class="bg-white rounded-xl shadow-xl p-8 max-w-md w-full">
+<div id="authModal" class="fixed inset-0 flex items-center justify-center z-50 hidden" style="padding:16px;">
+  <div class="pixel-panel p-6 md:p-8 max-w-md w-full">
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-semibold text-yellow-600" id="authModalTitle">Login</h2>
-      <button id="closeAuthModal" class="text-gray-400 hover:text-gray-600">
-        <span class="material-icons">close</span>
-      </button>
+      <h2 class="section-title" id="authModalTitle" style="margin-bottom:0;">Login</h2>
+      <button id="closeAuthModal" class="px-icon" aria-label="Close" style="color:var(--text-dim); font-size:16px; background:none; border:none; cursor:pointer;">✕</button>
     </div>
-    
-    <!-- ログインフォーム -->
+
     <form id="loginForm" class="auth-form">
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="loginEmail">Email</label>
-        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="loginEmail" name="loginEmail" type="email" required>
+        <label class="retro-label" for="loginEmail">Email</label>
+        <input class="input-pixel" id="loginEmail" name="loginEmail" type="email" required>
       </div>
       <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="loginPassword">Password</label>
-        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="loginPassword" name="loginPassword" type="password" required>
+        <label class="retro-label" for="loginPassword">Password</label>
+        <input class="input-pixel" id="loginPassword" name="loginPassword" type="password" required>
       </div>
       <div>
-        <button class="w-full bg-yellow-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-yellow-600 transition duration-300" type="submit">
-          Login
-        </button>
+        <button class="btn-pixel w-full" type="submit">Login</button>
       </div>
-      <p class="text-center mt-4 text-sm text-gray-600">
-        Don't have an account? <a href="#" id="showSignupForm" class="text-yellow-600 hover:text-yellow-700">Sign up</a>
+      <p class="text-center mt-4" style="font-size:16px; color:var(--text-dim);">
+        Don't have an account? <a href="#" id="showSignupForm" style="color:var(--accent-4);">Sign up</a>
       </p>
     </form>
-    
-    <!-- サインアップフォーム -->
+
     <form id="signupForm" class="auth-form hidden">
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="signupUsername">Username</label>
-        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="signupUsername" name="signupUsername" type="text" required>
+        <label class="retro-label" for="signupUsername">Username</label>
+        <input class="input-pixel" id="signupUsername" name="signupUsername" type="text" required>
       </div>
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="signupEmail">Email</label>
-        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="signupEmail" name="signupEmail" type="email" required>
+        <label class="retro-label" for="signupEmail">Email</label>
+        <input class="input-pixel" id="signupEmail" name="signupEmail" type="email" required>
       </div>
       <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="signupPassword">Password</label>
-        <input class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500" id="signupPassword" name="signupPassword" type="password" required>
+        <label class="retro-label" for="signupPassword">Password</label>
+        <input class="input-pixel" id="signupPassword" name="signupPassword" type="password" required>
       </div>
       <div>
-        <button class="w-full bg-yellow-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-yellow-600 transition duration-300" type="submit">
-          Sign Up
-        </button>
+        <button class="btn-pixel w-full" type="submit">Sign Up</button>
       </div>
-      <p class="text-center mt-4 text-sm text-gray-600">
-        Already have an account? <a href="#" id="showLoginForm" class="text-yellow-600 hover:text-yellow-700">Login</a>
+      <p class="text-center mt-4" style="font-size:16px; color:var(--text-dim);">
+        Already have an account? <a href="#" id="showLoginForm" style="color:var(--accent-4);">Login</a>
       </p>
     </form>
   </div>
 </div>
 
 <script>
-        const beerRatingContainer = document.getElementById('beerRatingContainer');
-        const beerRatingValueInput = document.getElementById('beerRatingValue');
-        const currentRatingDisplay = document.getElementById('currentRatingDisplay');
-        const maxRating = 10;
-        // SVGファイルのパスを設定
-        const beerImagePaths = [
-            'ビール進行度/1.svg', // Level 1
-            'ビール進行度/2.svg', // Level 2
-            'ビール進行度/3.svg', // Level 3
-            'ビール進行度/4.svg', // Level 4
-            'ビール進行度/5.svg', // Level 5
-            'ビール進行度/6.svg', // Level 6
-            'ビール進行度/7.svg', // Level 7
-            'ビール進行度/8.svg', // Level 8
-            'ビール進行度/9.svg', // Level 9
-            'ビール進行度/10.svg' // Level 10 (fullest)
-        ];
-        function renderRatingIcons(currentRating = 0) {
-            beerRatingContainer.innerHTML = ''; // Clear existing icons
-            for (let i = 1; i <= maxRating; i++) {
-                const img = document.createElement('img');
-                img.classList.add('beer-icon');
-                img.dataset.value = i;
-                // Use the specific image for this rating level
-                // The array is 0-indexed, so i-1
-                img.src = beerImagePaths[Math.min(i, beerImagePaths.length) - 1]; // Use the specific image for this rating level up to the max available images
-                img.alt = `Beer rating ${i} of ${maxRating}`;
-                if (i <= currentRating) {
-                    img.classList.add('selected-beer-icon');
-                }
-                img.addEventListener('click', () => {
-                    const rating = parseInt(img.dataset.value);
-                    beerRatingValueInput.value = rating;
-                    currentRatingDisplay.textContent = rating;
-                    renderRatingIcons(rating);
-                });
-                img.addEventListener('mouseover', () => {
-                    const hoverValue = parseInt(img.dataset.value);
-                    const icons = beerRatingContainer.querySelectorAll('.beer-icon');
-                    icons.forEach(icon => {
-                        if (parseInt(icon.dataset.value) <= hoverValue) {
-                            icon.classList.add('selected-beer-icon'); // Temporary highlight for hover
-                        } else {
-                            icon.classList.remove('selected-beer-icon');
-                        }
-                    });
-                });
-                img.addEventListener('mouseout', () => {
-                    // Re-render based on the actual selected rating
-                    renderRatingIcons(parseInt(beerRatingValueInput.value) || 0);
-                });
-                beerRatingContainer.appendChild(img);
-            }
-        }
-        // Initial render
-        renderRatingIcons(0);
-        // Image preview for upload
-        const fileUpload = document.getElementById('file-upload');
-        const imagePreview = document.getElementById('imagePreview');
-        fileUpload.addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imagePreview.src = e.target.result;
-                    imagePreview.classList.remove('hidden');
-                }
-                reader.readAsDataURL(file);
-            } else {
-                imagePreview.src = "";
-                imagePreview.classList.add('hidden');
-            }
-        });
-        // Form submission with API integration
-        const rateBeerForm = document.getElementById('rateBeerForm');
-        rateBeerForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const beerName = document.getElementById('beerName').value;
-            const rating = beerRatingValueInput.value;
-            const review = document.getElementById('beerReview').value;
-            const imageFile = fileUpload.files[0];
+/* ============================================================
+   Cheers! — pixel beer app
+   Notes:
+   - The rating widget shows a glass filling from empty (1) to
+     overflowing with foam (10). Each pip is a distinct fill level.
+   - The real backend (API_BASE_URL) is a placeholder. When a
+     request fails (offline / demo), we fall back to a local
+     "demo mode" backed by localStorage so login + rating still
+     work and the wall stays populated.
+   ============================================================ */
 
-            if (!beerName || !rating) {
-                alert('Please provide a beer name and a rating.');
-                return;
-            }
-
-            try {
-                // APIに評価を送信
-                await ratingAPI.submitRating({
-                    name: beerName,
-                    rating: rating,
-                    review: review,
-                    image: imageFile
-                });
-
-                // Recent Ratingsセクションを表示
-                const myRatingsSection = document.getElementById('myRatingsSection');
-                myRatingsSection.style.display = 'block';
-                
-                // 自分の評価を再読み込み
-                loadMyRatings();
-                
-                // フォームをリセット
-                rateBeerForm.reset();
-                imagePreview.src = "";
-                imagePreview.classList.add('hidden');
-                beerRatingValueInput.value = "0";
-                currentRatingDisplay.textContent = "0";
-                renderRatingIcons(0);
-                
-                alert('Rating submitted successfully!');
-            } catch (error) {
-                console.error('評価投稿エラー:', error);
-                
-                if (error.message.includes('認証が必要')) {
-                    alert('ログインが必要です！');
-                } else {
-                    alert('エラーが発生しました。再度お試しください。');
-                }
-            }
-        });
-        // APIの基本URL
 const API_BASE_URL = 'https://api.example.com';
+const maxRating = 10;
 
-// 認証関連の関数
+/* ---------- small helpers ---------- */
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'); }
+function fileToDataURL(file) {
+    return new Promise((resolve) => {
+        const r = new FileReader();
+        r.onload = e => resolve(e.target.result);
+        r.onerror = () => resolve('');
+        r.readAsDataURL(file);
+    });
+}
+
+/* ---------- pixel beer glass, filled to `level` (1..10) ---------- */
+function beerGlassSVG(level, opt) {
+    opt = opt || {};
+    const OUT   = '#2a1608';
+    const GLASS = '#2b2150';                 // empty glass interior
+    const body  = opt.body  || '#ffb100';
+    const bodyD = opt.bodyD || '#e08e00';
+    const shine = opt.shine || '#ffd966';
+    const foam  = opt.foam  || '#fff6e0';
+    const foam2 = opt.foam2 || '#ffe9b3';
+    const cls   = opt.cls   || '';
+    const parts = [];
+    const R = (x, y, w, h, f) => { if (w > 0 && h > 0) parts.push('<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + f + '"/>'); };
+
+    R(4, 4, 5, 12, GLASS);                   // empty interior
+
+    let fillRows = (level >= 10) ? 12 : Math.round((level - 1) / 8 * 12);
+    fillRows = Math.max(0, Math.min(12, fillRows));
+
+    if (fillRows > 0) {
+        const topY = 16 - fillRows;          // liquid spans [topY, 15]
+        R(4, topY, 5, fillRows, body);       // body
+        R(4, 15, 5, 1, bodyD);               // bottom shadow row
+        const foamRows = Math.min(fillRows, level >= 9 ? 2 : 1);
+        R(4, topY + foamRows, 1, fillRows - foamRows, shine); // left shine under foam
+        R(4, topY, 5, foamRows, foam);       // foam head
+    }
+
+    if (level >= 10) {                       // foam pouring over the rim
+        R(3, 2, 7, 2, foam);
+        R(4, 1, 5, 1, foam);
+        R(5, 0, 3, 1, foam2);
+        R(2, 4, 1, 4, foam);                 // drip down the side
+        R(1, 8, 1, 1, foam);
+    }
+
+    // glass outline + handle (drawn last so edges stay crisp)
+    R(3, 3, 1, 14, OUT);
+    R(9, 3, 1, 14, OUT);
+    R(3, 16, 7, 1, OUT);
+    R(9, 6, 4, 1, OUT);
+    R(12, 6, 1, 6, OUT);
+    R(9, 11, 4, 1, OUT);
+
+    return '<svg class="' + cls + '" viewBox="0 0 14 18" shape-rendering="crispEdges" aria-hidden="true">' + parts.join('') + '</svg>';
+}
+function beerPhotoSVG(beer) {
+    return beerGlassSVG(10, {
+        body: beer.color, bodyD: beer.bodyD, foam: beer.foam, foam2: beer.foam2, shine: beer.shine, cls: 'glass-photo'
+    });
+}
+
+/* ---------- demo data (shown on the wall + catalog when offline) ---------- */
+const DEMO_BEERS = [
+    { beer_name: 'Golden Lager',   rating: 8,  review: 'Crisp and clean — my after-work reset button.', user_name: 'Mika', created_at: '2023-05-02', color: '#ffcf3f' },
+    { beer_name: 'Amber Ale',      rating: 7,  review: 'Caramel malt, smooth finish. Cozy pint.',       user_name: 'Kenji', created_at: '2023-05-04', color: '#e8842a', bodyD: '#b5661a' },
+    { beer_name: 'Midnight Stout', rating: 9,  review: 'Coffee, chocolate, velvet. Incredible.',         user_name: 'Sara', created_at: '2023-05-06', color: '#3a2416', bodyD: '#241203', shine: '#5a3a20', foam: '#e8cfa6', foam2: '#d9b98a' },
+    { beer_name: 'Hazy IPA',       rating: 6,  review: 'Juicy up front but the bitterness bites.',       user_name: 'Tom', created_at: '2023-05-08', color: '#f0b429' },
+    { beer_name: 'Pilsner',        rating: 7,  review: 'Light, refreshing, dangerously easy.',           user_name: 'Yuki', created_at: '2023-05-10', color: '#ffe066' },
+    { beer_name: 'Hefeweizen',     rating: 8,  review: 'Banana & clove, cloudy and lovely.',             user_name: 'Emma', created_at: '2023-05-12', color: '#f4c95d' },
+    { beer_name: 'Red Ale',        rating: 5,  review: 'Fine, but a little forgettable.',                user_name: 'Leo', created_at: '2023-05-14', color: '#c0521f', bodyD: '#8f3c14' },
+    { beer_name: 'Barrel Stout',   rating: 10, review: 'Best. Beer. Ever. No notes.',                    user_name: 'Aya', created_at: '2023-05-16', color: '#2a1810', bodyD: '#160a04', shine: '#4a2c18', foam: '#d9b98a', foam2: '#c7a274' }
+].map(b => Object.assign({ id: 'demo-' + slug(b.beer_name), image_url: '' }, b));
+
+/* ---------- local (demo) store ---------- */
+function getLocalRatings() { try { return JSON.parse(localStorage.getItem('cheersRatings') || '[]'); } catch (e) { return []; } }
+function saveLocalRatings(a) { localStorage.setItem('cheersRatings', JSON.stringify(a)); }
+function getWishlistLocal() { try { return JSON.parse(localStorage.getItem('cheersWishlist') || '[]'); } catch (e) { return []; } }
+function saveWishlistLocal(a) { localStorage.setItem('cheersWishlist', JSON.stringify(a)); }
+function currentUsername() { return localStorage.getItem('username') || 'You'; }
+function allBeers() {
+    // newest local submissions first, then the demo wall
+    return getLocalRatings().concat(DEMO_BEERS);
+}
+function isNetworkError(err) { return err instanceof TypeError; }
+
+/* ---------- auth API (real, with demo fallback) ---------- */
 const authAPI = {
-    // ログイン
     login: async (email, password) => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('userId', data.user.id);
+                localStorage.setItem('username', (data.user && data.user.username) || 'You');
                 return data;
-            } else {
-                throw new Error(data.message || 'ログインに失敗しました');
             }
+            throw new Error(data.message || 'ログインに失敗しました');
         } catch (error) {
-            console.error('ログインエラー:', error);
+            if (isNetworkError(error)) return demoAuth.signIn(email);
             throw error;
         }
     },
-    
-    // サインアップ
     register: async (username, email, password) => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, email, password })
             });
             return await response.json();
         } catch (error) {
-            console.error('登録エラー:', error);
+            if (isNetworkError(error)) return demoAuth.signIn(email, username);
             throw error;
         }
     },
-    
-    // ログアウト
     logout: () => {
         localStorage.removeItem('token');
         localStorage.removeItem('userId');
+        localStorage.removeItem('username');
+    }
+};
+const demoAuth = {
+    signIn: (email, username) => {
+        const name = username || (email || 'guest').split('@')[0] || 'guest';
+        const token = 'demo-' + Date.now();
+        const userId = 'demo-' + slug(name);
+        localStorage.setItem('token', token);
+        localStorage.setItem('userId', userId);
+        localStorage.setItem('username', name);
+        return { token, user: { id: userId, username: name } };
     }
 };
 
-// ビール評価関連の関数
+/* ---------- rating API (real, with demo fallback) ---------- */
 const ratingAPI = {
-    // 評価を投稿
     submitRating: async (beerData) => {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('認証が必要です');
-        
         const formData = new FormData();
         formData.append('beer_name', beerData.name);
         formData.append('rating', beerData.rating);
         formData.append('review', beerData.review);
-        if (beerData.image) {
-            formData.append('image', beerData.image);
-        }
-        
+        if (beerData.image) formData.append('image', beerData.image);
         try {
             const response = await fetch(`${API_BASE_URL}/api/ratings`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData
             });
             return await response.json();
         } catch (error) {
-            console.error('評価投稿エラー:', error);
-            throw error;
+            if (!isNetworkError(error)) throw error;
+            const image_url = beerData.image ? await fileToDataURL(beerData.image) : '';
+            const rec = {
+                id: 'me-' + Date.now(), beer_name: beerData.name, rating: parseInt(beerData.rating),
+                review: beerData.review, user_name: currentUsername(), user_id: localStorage.getItem('userId'),
+                image_url: image_url, created_at: new Date().toISOString(), color: '#ffb100'
+            };
+            const arr = getLocalRatings(); arr.unshift(rec); saveLocalRatings(arr);
+            return rec;
         }
     },
-    
-    // 最近の評価を取得
     getRecentRatings: async (limit = 10) => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/ratings?limit=${limit}&sort_by=created_at:desc`);
-            return await response.json();
-        } catch (error) {
-            console.error('評価取得エラー:', error);
-            return [];
-        }
+            const data = await response.json();
+            return (Array.isArray(data) && data.length) ? data : allBeers();
+        } catch (error) { return allBeers(); }
     },
-    
-    // ビールごとの評価を取得
     getBeerRatings: async (beerName) => {
         try {
             const encodedName = encodeURIComponent(beerName);
             const response = await fetch(`${API_BASE_URL}/api/ratings?filter_by=beer_name:${encodedName}`);
-            return await response.json();
-        } catch (error) {
-            console.error('ビール評価取得エラー:', error);
-            return [];
-        }
+            const data = await response.json();
+            if (Array.isArray(data) && data.length) return data;
+            return allBeers().filter(b => b.beer_name === beerName);
+        } catch (error) { return allBeers().filter(b => b.beer_name === beerName); }
     },
-    
-    // お気に入りに追加/削除
     toggleWantToHave: async (beerId) => {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('認証が必要です');
-        
         try {
             const response = await fetch(`${API_BASE_URL}/api/users/wishlist/${beerId}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
             return await response.json();
         } catch (error) {
-            console.error('お気に入り追加エラー:', error);
-            throw error;
+            if (!isNetworkError(error)) throw error;
+            let list = getWishlistLocal();
+            if (list.some(i => i.beer_id === beerId)) list = list.filter(i => i.beer_id !== beerId);
+            else list.push({ beer_id: beerId });
+            saveWishlistLocal(list);
+            return { ok: true };
         }
     },
-    
-    // お気に入りリスト取得
     getWishlist: async () => {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('認証が必要です');
-        
         try {
-            const response = await fetch(`${API_BASE_URL}/api/users/wishlist`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            return await response.json();
+            const response = await fetch(`${API_BASE_URL}/api/users/wishlist`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await response.json();
+            return Array.isArray(data) ? data : getWishlistLocal();
+        } catch (error) { return getWishlistLocal(); }
+    },
+    getMyRatings: async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return [];
+        try {
+            const userId = localStorage.getItem('userId');
+            const response = await fetch(`${API_BASE_URL}/api/users/${userId}/ratings`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await response.json();
+            if (Array.isArray(data) && data.length) return data;
+            return getLocalRatings();
         } catch (error) {
-            console.error('お気に入りリスト取得エラー:', error);
-            return [];
+            const uid = localStorage.getItem('userId');
+            return getLocalRatings().filter(r => !r.user_id || r.user_id === uid);
         }
     }
 };
 
-// ページ切り替え処理
-document.addEventListener('DOMContentLoaded', function() {
+/* ---------- rating widget ---------- */
+const beerRatingContainer = document.getElementById('beerRatingContainer');
+const beerRatingValueInput = document.getElementById('beerRatingValue');
+const currentRatingDisplay = document.getElementById('currentRatingDisplay');
+
+function renderRatingIcons(currentRating = 0) {
+    beerRatingContainer.innerHTML = '';
+    for (let i = 1; i <= maxRating; i++) {
+        const pip = document.createElement('button');
+        pip.type = 'button';
+        pip.className = 'rating-pip';
+        pip.dataset.value = i;
+        pip.setAttribute('aria-label', `Rate ${i} of ${maxRating}`);
+        pip.innerHTML = beerGlassSVG(i);         // each pip = its own fill level
+        if (i <= currentRating) pip.classList.add('selected-beer-icon');
+        pip.addEventListener('click', () => {
+            beerRatingValueInput.value = i;
+            currentRatingDisplay.textContent = i;
+            renderRatingIcons(i);
+        });
+        pip.addEventListener('mouseover', () => {
+            beerRatingContainer.querySelectorAll('.rating-pip').forEach(p => {
+                p.classList.toggle('selected-beer-icon', parseInt(p.dataset.value) <= i);
+            });
+        });
+        pip.addEventListener('mouseout', () => renderRatingIcons(parseInt(beerRatingValueInput.value) || 0));
+        beerRatingContainer.appendChild(pip);
+    }
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', function () {
+    const landingSection = document.getElementById('landingSection');
+    const valueSection = document.getElementById('valueSection');
+    const seekSection = document.getElementById('seekSection');
+    const beerDetailSection = document.getElementById('beerDetailSection');
     const seekNavBtn = document.getElementById('seekNavBtn');
     const valueNavBtn = document.getElementById('valueNavBtn');
-    const seekSection = document.getElementById('seekSection');
-    const valueSection = document.getElementById('valueSection');
-    
-    // デフォルトはValueセクションを表示
-    valueSection.style.display = 'block';
-    seekSection.style.display = 'none';
-    
-    // ナビゲーションボタンクリック時の処理
-    seekNavBtn.addEventListener('click', function() {
-        valueSection.style.display = 'none';
-        seekSection.style.display = 'block';
-        // ビールカタログを読み込む
-        loadBeerCatalog();
-    });
-    
-    valueNavBtn.addEventListener('click', function() {
-        seekSection.style.display = 'none';
-        valueSection.style.display = 'block';
-        // 自分の評価を読み込む
-        loadMyRatings();
-    });
-    
-    // ビールカタログを読み込む関数
+    const navLinksWrap = document.getElementById('navLinksWrap');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const authModal = document.getElementById('authModal');
+    const appGreeting = document.getElementById('appGreeting');
+
+    // hero glasses showcase the fill progression (empty -> overflowing)
+    document.getElementById('heroRow').innerHTML = [2, 4, 6, 8, 10].map(l => beerGlassSVG(l)).join('');
+
+    renderRatingIcons(0);
+
+    /* ---------- section switching ---------- */
+    function showAppSection(which) {
+        valueSection.style.display = (which === 'value') ? 'block' : 'none';
+        seekSection.style.display = (which === 'seek') ? 'block' : 'none';
+        valueNavBtn.classList.toggle('active', which === 'value');
+        seekNavBtn.classList.toggle('active', which === 'seek');
+        navLinksWrap.classList.remove('open');
+        hamburgerBtn.setAttribute('aria-expanded', 'false');
+        if (which === 'value') loadMyRatings();
+        if (which === 'seek') loadBeerCatalog();
+    }
+
+    /* ---------- auth-driven UI state ---------- */
+    function applyAuthState() {
+        const loggedIn = !!localStorage.getItem('token');
+        document.body.classList.toggle('logged-in', loggedIn);
+        if (loggedIn) {
+            landingSection.style.display = 'none';
+            appGreeting.textContent = `Cheers, ${currentUsername()}!`;
+            loginBtn.textContent = 'Logout';
+            loginBtn.classList.add('btn-pixel-danger');
+            showAppSection('value');
+        } else {
+            landingSection.style.display = 'block';
+            valueSection.style.display = 'none';
+            seekSection.style.display = 'none';
+            beerDetailSection.style.display = 'none';
+            loginBtn.textContent = 'Login';
+            loginBtn.classList.remove('btn-pixel-danger');
+            renderWall();
+        }
+    }
+
+    /* ---------- the wall (polaroids) ---------- */
+    const ROTS = [-4, 3, -2, 2, -3, 4, -1, 3, -2, 2];
+    function renderWall() {
+        const wall = document.getElementById('polaroidWall');
+        const beers = allBeers();
+        wall.innerHTML = '';
+        beers.forEach((b, i) => {
+            const card = document.createElement('article');
+            card.className = 'polaroid';
+            card.style.setProperty('--rot', ROTS[i % ROTS.length] + 'deg');
+            const photo = b.image_url
+                ? `<img src="${esc(b.image_url)}" alt="${esc(b.beer_name)}" style="width:100%;height:100%;object-fit:cover;">`
+                : beerPhotoSVG(b);
+            card.innerHTML =
+                '<span class="pin" aria-hidden="true"></span>' +
+                '<div class="photo">' + photo + '</div>' +
+                '<div class="caption">' +
+                    '<div class="p-name">' + esc(b.beer_name) + '</div>' +
+                    '<div class="p-review">&ldquo;' + esc(b.review || 'No note left.') + '&rdquo;</div>' +
+                    '<div class="p-meta">' +
+                        '<span class="p-rating">' + beerGlassSVG(b.rating, { cls: 'mini' }) + ' ' + b.rating + '/10</span>' +
+                        '<span>&mdash; ' + esc(b.user_name || 'Anon') + '</span>' +
+                    '</div>' +
+                '</div>';
+            wall.appendChild(card);
+        });
+    }
+
+    /* ---------- catalog (Seek) ---------- */
     async function loadBeerCatalog() {
         const beerCatalog = document.getElementById('beerCatalog');
         try {
-            // APIからビールの一覧を取得
             const beers = await ratingAPI.getRecentRatings(20);
-            
-            if (beers.length === 0) {
-                beerCatalog.innerHTML = '<p class="text-gray-500 col-span-3 text-center">No beers found.</p>';
+            if (!beers.length) {
+                beerCatalog.innerHTML = '<p class="col-span-3 text-center" style="color:var(--text-dim);">No beers found.</p>';
                 return;
             }
-            
-            // ユニークなビール名のみをフィルタリング
-            const uniqueBeers = Array.from(new Set(beers.map(beer => beer.beer_name)))
-                .map(name => {
-                    return beers.find(beer => beer.beer_name === name);
-                });
-            
+            const uniqueBeers = Array.from(new Set(beers.map(b => b.beer_name))).map(name => beers.find(b => b.beer_name === name));
             beerCatalog.innerHTML = '';
-            uniqueBeers.forEach(beer => {
-                const beerCard = createBeerCard(beer);
-                beerCatalog.appendChild(beerCard);
-            });
+            uniqueBeers.forEach(beer => beerCatalog.appendChild(createBeerCard(beer)));
         } catch (error) {
-            console.error('ビールカタログ読み込みエラー:', error);
-            beerCatalog.innerHTML = '<p class="text-gray-500 col-span-3 text-center">Error loading beers. Please try again.</p>';
+            beerCatalog.innerHTML = '<p class="col-span-3 text-center" style="color:var(--text-dim);">Error loading beers. Please try again.</p>';
         }
     }
-    
-    // ビールカード作成関数
     function createBeerCard(beer) {
         const card = document.createElement('div');
-        card.classList.add('bg-white', 'p-6', 'rounded-xl', 'shadow-md', 'cursor-pointer', 'hover:shadow-lg', 'transition');
-        
-        // 平均評価を計算（仮実装）
-        const avgRating = beer.rating || 0;
-        
-        card.innerHTML = `
-            <img src="${beer.image_url || 'image-placeholder-default.jpg'}" alt="${beer.beer_name}" class="w-full h-48 object-cover rounded-lg mb-4">
-            <h3 class="text-xl font-semibold text-yellow-600 mb-2">${beer.beer_name}</h3>
-            <div class="flex items-center mb-2">
-                <span class="text-yellow-500 font-bold text-lg mr-1">${avgRating}/10</span>
-            </div>
-        `;
-        
-        // ビール詳細表示のイベントリスナー
-        card.addEventListener('click', () => {
-            showBeerDetails(beer);
-        });
-        
+        card.classList.add('beer-card');
+        const photo = beer.image_url
+            ? `<img src="${esc(beer.image_url)}" alt="${esc(beer.beer_name)}">`
+            : `<div class="card-photo">${beerPhotoSVG(beer)}</div>`;
+        card.innerHTML = photo +
+            `<h3>${esc(beer.beer_name)}</h3>` +
+            `<span class="score-badge">${beer.rating || 0}/10</span>`;
+        card.addEventListener('click', () => showBeerDetails(beer));
         return card;
     }
-    
-    // ビール詳細を表示する関数
+
     async function showBeerDetails(beer) {
         const beerCatalogSection = document.getElementById('beerCatalog').parentElement;
-        const beerDetailSection = document.getElementById('beerDetailSection');
         const detailBeerName = document.getElementById('detailBeerName');
-        const detailBeerImage = document.getElementById('detailBeerImage');
+        const detailBeerPhoto = document.getElementById('detailBeerPhoto');
         const detailAverageRating = document.getElementById('detailAverageRating');
         const detailRatingIcons = document.getElementById('detailRatingIcons');
+        const detailRatingCount = document.getElementById('detailRatingCount');
         const beerReviewsList = document.getElementById('beerReviewsList');
         const backToCatalog = document.getElementById('backToCatalog');
         const wannaHaveBtn = document.getElementById('wannaHaveBtn');
-        
-        // ビール詳細を設定
+
         detailBeerName.textContent = beer.beer_name;
-        detailBeerImage.src = beer.image_url || 'image-placeholder-default.jpg';
-        
+        detailBeerPhoto.innerHTML = beer.image_url
+            ? `<img src="${esc(beer.image_url)}" alt="${esc(beer.beer_name)}" style="width:100%;height:100%;object-fit:cover;">`
+            : beerPhotoSVG(beer);
+
         try {
-            // このビールの評価を取得
             const ratings = await ratingAPI.getBeerRatings(beer.beer_name);
-            const avgRating = ratings.length ? 
-                ratings.reduce((sum, b) => sum + parseInt(b.rating), 0) / ratings.length : 0;
-            
+            const avgRating = ratings.length ? ratings.reduce((s, b) => s + parseInt(b.rating), 0) / ratings.length : 0;
             detailAverageRating.textContent = `${avgRating.toFixed(1)}/10`;
-            
-            // レビュー一覧を表示
+            detailRatingCount.textContent = `${ratings.length} rating${ratings.length === 1 ? '' : 's'}`;
+            detailRatingIcons.innerHTML = beerGlassSVG(Math.round(avgRating), { cls: 'mini' });
+            detailRatingIcons.querySelector('svg').style.height = '22px';
+
             beerReviewsList.innerHTML = '';
-            if (ratings.length === 0) {
-                beerReviewsList.innerHTML = '<p class="text-gray-500">No reviews yet for this beer.</p>';
+            if (!ratings.length) {
+                beerReviewsList.innerHTML = '<p style="color:var(--text-dim);">No reviews yet for this beer.</p>';
             } else {
                 ratings.forEach(rating => {
                     const reviewEl = document.createElement('div');
-                    reviewEl.classList.add('border-b', 'border-gray-200', 'pb-4');
-                    reviewEl.innerHTML = `
-                        <div class="flex items-center mb-2">
-                            <span class="font-medium text-gray-700">${rating.user_name || 'Anonymous'}</span>
-                            <span class="text-yellow-500 font-bold ml-2">${rating.rating}/10</span>
+                    reviewEl.classList.add('pb-4');
+                    reviewEl.style.borderBottom = '2px solid var(--panel-light)';
+                    reviewEl.innerHTML =
+                        `<div class="flex items-center mb-2 gap-2">
+                            <span style="color:var(--text);font-family:'Press Start 2P',monospace;font-size:11px;">${esc(rating.user_name || 'Anonymous')}</span>
+                            <span class="score-badge" style="font-size:11px;">${rating.rating}/10</span>
                         </div>
-                        <p class="text-gray-600">${rating.review || 'No review text provided.'}</p>
-                        <p class="text-xs text-gray-400 mt-1">Rated on ${new Date(rating.created_at).toLocaleDateString()}</p>
-                    `;
+                        <p style="color:var(--text-dim);">${esc(rating.review || 'No review text provided.')}</p>
+                        <p style="font-size:14px;color:var(--text-dim);opacity:.7;margin-top:4px;">Rated on ${new Date(rating.created_at).toLocaleDateString()}</p>`;
                     beerReviewsList.appendChild(reviewEl);
                 });
             }
-            
-            // Wanna Haveボタンの状態を更新
+
             updateWannaHaveButton(wannaHaveBtn, beer.id);
-            
-            // 詳細表示に切り替え
             beerCatalogSection.style.display = 'none';
             beerDetailSection.style.display = 'block';
-            
-            // 戻るボタンのイベントリスナー
-            backToCatalog.addEventListener('click', () => {
+
+            backToCatalog.onclick = () => {
                 beerDetailSection.style.display = 'none';
                 beerCatalogSection.style.display = 'block';
-            });
-            
-            // Wanna Haveボタンのイベントリスナー
-            wannaHaveBtn.addEventListener('click', async () => {
+            };
+            wannaHaveBtn.onclick = async () => {
                 try {
                     await ratingAPI.toggleWantToHave(beer.id);
                     updateWannaHaveButton(wannaHaveBtn, beer.id);
                 } catch (error) {
-                    if (error.message.includes('認証が必要')) {
-                        alert('ログインが必要です');
-                    } else {
-                        alert('エラーが発生しました。再度お試しください。');
-                    }
+                    alert(error.message.includes('認証が必要') ? 'ログインが必要です' : 'エラーが発生しました。再度お試しください。');
                 }
-            });
-            
+            };
         } catch (error) {
-            console.error('ビール詳細取得エラー:', error);
-            beerReviewsList.innerHTML = '<p class="text-red-500">エラーが発生しました。再度お試しください。</p>';
+            beerReviewsList.innerHTML = '<p style="color:var(--danger);">エラーが発生しました。再度お試しください。</p>';
         }
     }
-    
-    // Wanna Haveボタンの状態を更新
+
     async function updateWannaHaveButton(button, beerId) {
         try {
             const wishlist = await ratingAPI.getWishlist();
             const isWished = wishlist.some(item => item.beer_id === beerId);
-            
             if (isWished) {
-                button.innerHTML = '<span class="material-icons mr-1">bookmark</span> Added to Wishlist';
-                button.classList.remove('bg-yellow-500');
-                button.classList.add('bg-gray-500');
+                button.innerHTML = '<span class="px-icon" aria-hidden="true">★</span> Added to Wishlist';
+                button.classList.remove('btn-pixel'); button.classList.add('btn-pixel-success');
             } else {
-                button.innerHTML = '<span class="material-icons mr-1">bookmark_border</span> Wanna Have!';
-                button.classList.remove('bg-gray-500');
-                button.classList.add('bg-yellow-500');
+                button.innerHTML = '<span class="px-icon" aria-hidden="true">☆</span> Wanna Have!';
+                button.classList.remove('btn-pixel-success'); button.classList.add('btn-pixel');
             }
         } catch (error) {
-            // ログインしていない場合はデフォルト表示
-            button.innerHTML = '<span class="material-icons mr-1">bookmark_border</span> Wanna Have!';
+            button.innerHTML = '<span class="px-icon" aria-hidden="true">☆</span> Wanna Have!';
         }
     }
-    
-    // 自分の評価を読み込む関数
+
+    /* ---------- my ratings ---------- */
     async function loadMyRatings() {
         const myRatingsFeed = document.getElementById('myRatingsFeed');
         const myRatingsSection = document.getElementById('myRatingsSection');
-        
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                myRatingsSection.style.display = 'none';
-                return;
-            }
-            
-            const userId = localStorage.getItem('userId');
-            const response = await fetch(`${API_BASE_URL}/api/users/${userId}/ratings`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const myRatings = await response.json();
-            
-            if (myRatings.length === 0) {
-                myRatingsFeed.innerHTML = '<p class="text-gray-500 col-span-3 text-center">You haven\'t rated any beers yet.</p>';
-                myRatingsSection.style.display = 'block';
-                return;
-            }
-            
-            myRatingsFeed.innerHTML = '';
-            myRatings.forEach(rating => {
-                const ratingCard = document.createElement('div');
-                ratingCard.classList.add('bg-white', 'p-6', 'rounded-xl', 'shadow-md');
-                
-                let ratingStarsHTML = '';
-                for(let i=1; i<=maxRating; i++){
-                    if (i <= parseInt(rating.rating)) {
-                        ratingStarsHTML += `<img src="${beerImagePaths[Math.min(i, beerImagePaths.length) - 1]}" alt="Full beer mug icon" class="w-5 h-5">`;
-                    } else {
-                        ratingStarsHTML += `<img src="${beerImagePaths[0]}" alt="Empty beer mug icon" class="w-5 h-5 opacity-30">`;
-                    }
-                }
-                
-                ratingCard.innerHTML = `
-                    <img src="${rating.image_url || 'image-placeholder-default.jpg'}" alt="Image of ${rating.beer_name}" class="w-full h-48 object-cover rounded-lg mb-4">
-                    <h3 class="text-xl font-semibold text-yellow-600 mb-2">${rating.beer_name}</h3>
-                    <div class="flex items-center mb-2">
-                        <span class="text-yellow-500 font-bold text-lg mr-1">${rating.rating}/10</span>
-                        <div class="flex">${ratingStarsHTML}</div>
-                    </div>
-                    <p class="text-gray-600 mb-3 text-sm">"${rating.review || 'No review provided.'}"</p>
-                    <p class="text-xs text-gray-400">Rated on ${new Date(rating.created_at).toLocaleDateString()}</p>
-                `;
-                
-                myRatingsFeed.appendChild(ratingCard);
-            });
-            
+        if (!localStorage.getItem('token')) { myRatingsSection.style.display = 'none'; return; }
+        const myRatings = await ratingAPI.getMyRatings();
+        if (!myRatings.length) {
+            myRatingsFeed.innerHTML = '<p class="col-span-3 text-center" style="color:var(--text-dim);">You haven\'t rated any beers yet — submit one above!</p>';
             myRatingsSection.style.display = 'block';
-            
-        } catch (error) {
-            console.error('自分の評価読み込みエラー:', error);
-            myRatingsSection.style.display = 'none';
+            return;
         }
+        myRatingsFeed.innerHTML = '';
+        myRatings.forEach(rating => {
+            const ratingCard = document.createElement('div');
+            ratingCard.classList.add('rating-card');
+            const photo = rating.image_url
+                ? `<img src="${esc(rating.image_url)}" alt="Image of ${esc(rating.beer_name)}">`
+                : `<div class="card-photo">${beerPhotoSVG(rating)}</div>`;
+            ratingCard.innerHTML = photo +
+                `<h3>${esc(rating.beer_name)}</h3>` +
+                `<div class="flex items-center mb-2 gap-2 flex-wrap">
+                    <span class="score-badge">${rating.rating}/10</span>
+                    ${beerGlassSVG(parseInt(rating.rating), { cls: 'mini' }).replace('<svg ', '<svg style="height:22px;width:auto;" ')}
+                </div>
+                <p class="mb-3" style="color:var(--text-dim);">"${esc(rating.review || 'No review provided.')}"</p>
+                <p style="font-size:14px;color:var(--text-dim);opacity:.7;">Rated on ${new Date(rating.created_at).toLocaleDateString()}</p>`;
+            myRatingsFeed.appendChild(ratingCard);
+        });
+        myRatingsSection.style.display = 'block';
     }
-});
 
-// ページの最後のスクリプトブロック内に追加
+    /* ---------- rate form submit ---------- */
+    const fileUpload = document.getElementById('file-upload');
+    const imagePreview = document.getElementById('imagePreview');
+    fileUpload.addEventListener('change', function (event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = e => { imagePreview.src = e.target.result; imagePreview.classList.remove('hidden'); };
+            reader.readAsDataURL(file);
+        } else { imagePreview.src = ''; imagePreview.classList.add('hidden'); }
+    });
 
-// 認証関連のUIコントロール
-document.addEventListener('DOMContentLoaded', function() {
-    const loginBtn = document.getElementById('loginBtn');
-    const authModal = document.getElementById('authModal');
+    const rateBeerForm = document.getElementById('rateBeerForm');
+    rateBeerForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const beerName = document.getElementById('beerName').value;
+        const rating = beerRatingValueInput.value;
+        const review = document.getElementById('beerReview').value;
+        const imageFile = fileUpload.files[0];
+        if (!beerName || !rating || rating === '0') { alert('Please provide a beer name and a rating.'); return; }
+        try {
+            await ratingAPI.submitRating({ name: beerName, rating: rating, review: review, image: imageFile });
+            document.getElementById('myRatingsSection').style.display = 'block';
+            loadMyRatings();
+            rateBeerForm.reset();
+            imagePreview.src = ''; imagePreview.classList.add('hidden');
+            beerRatingValueInput.value = '0'; currentRatingDisplay.textContent = '0';
+            renderRatingIcons(0);
+            alert('Cheers! Your rating was submitted.');
+        } catch (error) {
+            alert(error.message.includes('認証が必要') ? 'ログインが必要です！' : 'エラーが発生しました。再度お試しください。');
+        }
+    });
+
+    /* ---------- nav ---------- */
+    hamburgerBtn.addEventListener('click', function () {
+        const isOpen = navLinksWrap.classList.toggle('open');
+        hamburgerBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+    seekNavBtn.addEventListener('click', () => showAppSection('seek'));
+    valueNavBtn.addEventListener('click', () => showAppSection('value'));
+
+    /* ---------- auth modal ---------- */
     const closeAuthModal = document.getElementById('closeAuthModal');
     const showSignupForm = document.getElementById('showSignupForm');
     const showLoginForm = document.getElementById('showLoginForm');
     const loginForm = document.getElementById('loginForm');
     const signupForm = document.getElementById('signupForm');
     const authModalTitle = document.getElementById('authModalTitle');
+    function openModal() { authModal.classList.remove('hidden'); }
+    function closeModal() { authModal.classList.add('hidden'); }
 
-    // ログイン状態の確認と表示更新
-    checkAuthStatus();
-
-    // ログインボタンクリックでモーダル表示
-    loginBtn.addEventListener('click', function() {
-        const token = localStorage.getItem('token');
-        if (token) {
-            // すでにログインしている場合はログアウト
-            if (confirm('ログアウトしますか？')) {
-                authAPI.logout();
-                updateUIForLogout();
-            }
-        } else {
-            // ログインモーダルを表示
-            authModal.classList.remove('hidden');
-        }
+    loginBtn.addEventListener('click', function () {
+        if (localStorage.getItem('token')) {
+            if (confirm('ログアウトしますか？')) { authAPI.logout(); applyAuthState(); }
+        } else { openModal(); }
     });
+    document.getElementById('lpLoginCta').addEventListener('click', openModal);
+    closeAuthModal.addEventListener('click', closeModal);
+    showSignupForm.addEventListener('click', e => { e.preventDefault(); loginForm.classList.add('hidden'); signupForm.classList.remove('hidden'); authModalTitle.textContent = 'Sign Up'; });
+    showLoginForm.addEventListener('click', e => { e.preventDefault(); signupForm.classList.add('hidden'); loginForm.classList.remove('hidden'); authModalTitle.textContent = 'Login'; });
 
-    // モーダルを閉じる
-    closeAuthModal.addEventListener('click', function() {
-        authModal.classList.add('hidden');
-    });
-
-    // ログインとサインアップフォームの切り替え
-    showSignupForm.addEventListener('click', function(e) {
+    loginForm.addEventListener('submit', async function (e) {
         e.preventDefault();
-        loginForm.classList.add('hidden');
-        signupForm.classList.remove('hidden');
-        authModalTitle.textContent = 'Sign Up';
-    });
-
-    showLoginForm.addEventListener('click', function(e) {
-        e.preventDefault();
-        signupForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
-        authModalTitle.textContent = 'Login';
-    });
-
-    // ログインフォーム送信
-    loginForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-
         try {
-            const data = await authAPI.login(email, password);
-            // ログイン成功
-            authModal.classList.add('hidden');
-            updateUIForLogin(data.user);
-            alert('ログインに成功しました！');
-        } catch (error) {
-            alert('ログインエラー: ' + error.message);
-        }
+            await authAPI.login(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
+            closeModal(); applyAuthState();
+            alert('Welcome back! Time to rate some beers.');
+        } catch (error) { alert('ログインエラー: ' + error.message); }
     });
-
-    // サインアップフォーム送信
-    signupForm.addEventListener('submit', async function(e) {
+    signupForm.addEventListener('submit', async function (e) {
         e.preventDefault();
-        const username = document.getElementById('signupUsername').value;
-        const email = document.getElementById('signupEmail').value;
-        const password = document.getElementById('signupPassword').value;
-
         try {
-            const data = await authAPI.register(username, email, password);
+            const data = await authAPI.register(
+                document.getElementById('signupUsername').value,
+                document.getElementById('signupEmail').value,
+                document.getElementById('signupPassword').value
+            );
             if (data.token) {
-                // 登録と同時にログイン状態になる場合
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('userId', data.user.id);
-                updateUIForLogin(data.user);
-                authModal.classList.add('hidden');
-                alert('アカウント登録に成功しました！');
+                localStorage.setItem('username', data.user.username || 'You');
+                closeModal(); applyAuthState();
+                alert('Account created — cheers!');
             } else {
-                // 登録成功したがログインは別途必要な場合
                 alert('アカウント登録に成功しました。ログインしてください。');
-                signupForm.classList.add('hidden');
-                loginForm.classList.remove('hidden');
-                authModalTitle.textContent = 'Login';
+                signupForm.classList.add('hidden'); loginForm.classList.remove('hidden'); authModalTitle.textContent = 'Login';
             }
-        } catch (error) {
-            alert('登録エラー: ' + error.message);
-        }
+        } catch (error) { alert('登録エラー: ' + error.message); }
     });
+    window.addEventListener('click', e => { if (e.target === authModal) closeModal(); });
 
-    // ログイン状態の確認
-    function checkAuthStatus() {
-        const token = localStorage.getItem('token');
-        if (token) {
-            // トークンの検証
-            fetch(`${API_BASE_URL}/api/auth/verify`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.valid) {
-                    updateUIForLogin(data.user);
-                } else {
-                    // 無効なトークンの場合
-                    authAPI.logout();
-                    updateUIForLogout();
-                }
-            })
-            .catch(() => {
-                // エラー時は念のためログアウト
-                authAPI.logout();
-                updateUIForLogout();
-            });
-        } else {
-            updateUIForLogout();
-        }
-    }
-
-    // ログイン時のUI更新
-    function updateUIForLogin(user) {
-        loginBtn.textContent = 'Logout';
-        loginBtn.classList.remove('bg-white', 'text-yellow-600');
-        loginBtn.classList.add('bg-red-500', 'text-white');
-        
-        // ユーザー名を表示する要素があれば更新
-        const userNameElements = document.querySelectorAll('.user-name');
-        userNameElements.forEach(el => {
-            el.textContent = user.username || 'User';
-        });
-        
-        // マイレーティングセクションを表示
-        loadMyRatings();
-    }
-
-    // ログアウト時のUI更新
-    function updateUIForLogout() {
-        loginBtn.textContent = 'Login';
-        loginBtn.classList.remove('bg-red-500', 'text-white');
-        loginBtn.classList.add('bg-white', 'text-yellow-600');
-        
-        // マイレーティングセクションを非表示
-        const myRatingsSection = document.getElementById('myRatingsSection');
-        if (myRatingsSection) {
-            myRatingsSection.style.display = 'none';
-        }
-    }
-
-    // モーダル外クリックで閉じる機能（オプション）
-    window.addEventListener('click', function(event) {
-        if (event.target === authModal) {
-            authModal.classList.add('hidden');
-        }
-    });
+    /* ---------- boot ---------- */
+    applyAuthState();
 });
-
-// ログイントークン検証用APIの追加
-authAPI.verifyToken = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return { valid: false };
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        return await response.json();
-    } catch (error) {
-        console.error('Token verification error:', error);
-        return { valid: false };
-    }
-};
-    </script>
+</script>
 
 </body></html>
